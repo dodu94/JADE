@@ -269,6 +269,10 @@ class Plotter:
         elif plot_type == "Experimental points":
             outp = self._exp_points_plot(test_name=self.testname)
 
+        # --- Experimental Points Plot ---
+        elif plot_type == "New Experimental points":
+            outp = self._new_exp_points_plot(test_name=self.testname)
+
         elif plot_type == "Experimental points group":
             if self.testname == "Tiara-BC":  # Special actions for Tiara-BC
                 outp = self._exp_points_group_plot(
