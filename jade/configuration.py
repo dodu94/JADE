@@ -233,7 +233,7 @@ class Configuration:
 
 
 @dataclass
-class ComputationalConfig:
+class BenchmarkConfiguration:
     """Configuration for a computational benchmark.
 
     Attributes
@@ -248,7 +248,7 @@ class ComputationalConfig:
     atlas_options: dict[int, AtlasOptions]
 
     @classmethod
-    def from_yaml(cls, file: str | os.PathLike) -> ComputationalConfig:
+    def from_yaml(cls, file: str | os.PathLike) -> BenchmarkConfiguration:
         """Build the configuration for a computational benchmark from a yaml file.
 
         Parameters
@@ -310,6 +310,7 @@ class ExcelOptions:
     cut_y: int | None = (
         None  # max number of columns, after that the DF is split and goes to next line
     )
+    compute_CE: bool = False  # compute the CE of the tally if requested
 
     def __post_init__(self):
         # enforce that the binning type is a valid one, try to convert if possible

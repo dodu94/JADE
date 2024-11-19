@@ -25,7 +25,7 @@ import sys
 
 import pytest
 
-from jade.configuration import ComputationalConfig, Configuration
+from jade.configuration import BenchmarkConfiguration, Configuration
 
 cp = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(cp)
@@ -62,27 +62,27 @@ class TestComputationalConfig:
         )
         for file in os.listdir(root):
             if file.endswith(".yaml"):
-                cfg = ComputationalConfig.from_yaml(os.path.join(root, file))
+                cfg = BenchmarkConfiguration.from_yaml(os.path.join(root, file))
                 assert cfg
 
     def test_allowables(self):
-        cfg = ComputationalConfig.from_yaml(os.path.join(resources, "ITER_1D.yaml"))
+        cfg = BenchmarkConfiguration.from_yaml(os.path.join(resources, "ITER_1D.yaml"))
         # ensure that ints are correctly converted
         assert cfg.excel_options[44]
         # additional keyword not supported by the data class
         with pytest.raises(TypeError):
-            cfg = ComputationalConfig.from_yaml(
+            cfg = BenchmarkConfiguration.from_yaml(
                 os.path.join(resources, "wrong_cfg.yaml")
             )
 
         # unsupported plot type
         with pytest.raises(ValueError):
-            cfg = ComputationalConfig.from_yaml(
+            cfg = BenchmarkConfiguration.from_yaml(
                 os.path.join(resources, "wrong_cfg2.yaml")
             )
 
         # unsupported Tally bin type
         with pytest.raises(ValueError):
-            cfg = ComputationalConfig.from_yaml(
+            cfg = BenchmarkConfiguration.from_yaml(
                 os.path.join(resources, "wrong_cfg3.yaml")
             )

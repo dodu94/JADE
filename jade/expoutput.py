@@ -22,7 +22,7 @@
 
 #################### Modification by Matteo 18/11/2024##################################
 ########################################################################################
-# The current script is a modification of the original script by Davide Laghi 
+# The current script is a modification of the original script by Davide Laghi
 # It include the following changes:
 
 # All the experimental benchmark have been deleted but the Okatvian one.
@@ -31,8 +31,8 @@
 # even if it still require major modifications.
 
 # For the moment the classes such as SpectrumOutput, ShieldingOutput and
-# MultispectrumOutput have been keeped so that the codes runs without errors, but 
-# they must be editated appropriately in order to include other experimental benchmarks. 
+# MultispectrumOutput have been keeped so that the codes runs without errors, but
+# they must be editated appropriately in order to include other experimental benchmarks.
 ########################################################################################
 
 from __future__ import annotations
@@ -41,9 +41,9 @@ import abc
 import json
 import math
 import os
-import string
 import re
 import shutil
+import string
 from abc import abstractmethod
 
 import numpy as np
@@ -55,7 +55,7 @@ from scipy.interpolate import interp1d
 from tqdm import tqdm
 
 import jade.atlas as at
-from jade.output import MCNPBenchmarkOutput, MCNPSimOutput
+from jade.output import AbstractBenchmarkOutput, MCNPBenchmarkOutput, MCNPSimOutput
 from jade.plotter import Plotter
 from jade.status import EXP_TAG
 
@@ -75,7 +75,6 @@ MCNP_UNITS = {"Energy": "MeV", "Time": "shakes"}
 
 TALLY_NORMALIZATION = {
     "Oktavian": "lethargy",
-    "ASPIS-PCA-Replica_flux": "lethargy",
 }
 
 ACTIVATION_REACTION = {
@@ -92,70 +91,9 @@ ACTIVATION_REACTION = {
     "Zr": "Zr-90(n,2n)Zr-89",
 }
 
-class ExpAbstractOutput(abc.ABC):
-    @abc.abstractmethod
-    def single_postprocess(self):
-        """
-        To be executed when a single pp is requested
-        """
-        pass
 
-    @abc.abstractmethod
-    def compare(self):
-        """
-        To be executed when a comparison is requested
-        """
-
-    @staticmethod
-    def _get_output_files(results_path):
-        """
-        Recover the meshtal and outp file from a directory
-
-        Parameters
-        ----------
-        results_path : str or path
-            path where the MCNP results are contained.
-
-        Raises
-        ------
-        FileNotFoundError
-            if either meshtal or outp are not found.
-
-        Returns
-        -------
-        mfile : path
-            path to the meshtal file
-        ofile : path
-            path to the outp file
-
-        """
-        # Get mfile
-        mfile = None
-        ofile = None
-
-        for file in os.listdir(results_path):
-            if file[-1] == "m":
-                mfile = file
-            elif file[-1] == "o":
-                ofile = file
-
-        if mfile is None or ofile is None:
-            raise FileNotFoundError(
-                """
- The followig path does not contain either the .m or .o file:
- {}""".format(
-                    results_path
-                )
-            )
-
-        mfile = os.path.join(results_path, mfile)
-        ofile = os.path.join(results_path, ofile)
-
-        return mfile, ofile
-
-
-class ExpBenchmarkOutput(ExpAbstractOutput):
-    def __init__(self, lib: str, code: str, testname: str, session: Session, *args, **kwargs):
+class ExpAbstractBenchmarkOutput(AbstractBenchmarkOutput):
+    def __init__(self, *args, **kwargs):
         """
         This extends the Benchmark Output and creates an abstract class
         for all experimental outputs.
@@ -173,13 +111,6 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         None.
 
         """
-        self.raw_data = {}  # Raw data
-        self.outputs = {}  # outputs linked to the benchmark
-        self.testname = testname  # test name
-        self.code_path = os.getcwd()  # path to code
-        self.state = session.state
-        self.session = session
-        self.path_templates = session.path_templates
         # Add a special keyword for experimental benchmarks
         try:
             multiplerun = kwargs.pop("multiplerun")
@@ -192,22 +123,6 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         super().__init__(*args, **kwargs)
         # The experimental data needs to be loaded
         self.path_exp_res = os.path.join(session.path_exp_res, testname)
-
-        # Updated to handle multiple codes
-        # initialize them so that intellisense knows they are available
-        self.mcnp = False
-        self.d1s = False
-        self.serpent = False
-        self.d1s = False
-        for available_code in CODES.values():
-            if code == available_code:
-                setattr(self, available_code, True)
-                self.raw_data[code] = {}
-                self.outputs[code] = {}
-            else:
-                setattr(self, available_code, False)
-
-        self.code = code  # this can be handy in a lot of places to avoid if else
 
         # Add the raw path data (not created because it is a comparison)
         out = os.path.dirname(self.atlas_path)
@@ -312,10 +227,11 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         # Remove tmp images
         shutil.rmtree(tmp_path)
 
+    @abstractmethod
     def _extract_single_output(
-        self, results_path: str | os.PathLike, folder: str, lib: str
+        results_path: str | os.PathLike, folder: str, lib: str
     ) -> tuple[pd.DataFrame, str]:
-        """Method to extract single output data from MCNP files
+        """Method to extract the tally data result in a pd.DataFrame object
 
         Parameters
         ----------
@@ -333,27 +249,12 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         input : str
             Test name.
         """
-        mfile, ofile, meshtalfile = self._get_output_files(results_path)
-        # Parse output
-        output = MCNPSimOutput(mfile, ofile, meshtalfile)
+        pass
 
-        # need to extract the input in case of multi
-        if self.multiplerun:
-            pieces = folder.split("_")
-            input = pieces[-1]
-            if input not in self.inputs:
-                self.inputs.append(input)
-            self.outputs[input, lib] = output
-            # Get the meaningful results
-            self.results[input, lib] = self._processMCNPdata(output)
-        else:
-            # just treat it as a special case of multiple run
-            self.outputs[self.testname, lib] = output
-            # Get the meaningful results
-            self.results[self.testname, lib] = self._processMCNPdata(output)
-            input = self.testname
-
-        return output.tallydata, input
+    def _process_tally_data(self, data: pd.DataFrame) -> pd.DataFrame:
+        # TODO this needs to read special configurations (like compute lethargy)
+        # from the configuration file and modify the tally data accordingly
+        pass
 
     def _extract_outputs(self) -> None:
         """
@@ -364,20 +265,8 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         -------
         None.
         """
-        self.outputs = {}
-        self.results = {}
-
-        # Each output object is processing only one code at the time at the moment
-        if self.mcnp:
-            code_tag = "mcnp"
-        if self.openmc:
-            print("Experimental comparison not implemented for OpenMC")
-            return
-        if self.serpent:
-            print("Experimental comparison not implemented for Serpent")
-            return
-        if self.d1s:
-            code_tag = "d1s"
+        # self.outputs = {}
+        # self.results = {}
 
         # only multiple runs have multiple inputs
         if self.multiplerun:
@@ -392,7 +281,7 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
                     # Results are organized by folder and lib
                     code_raw_data = {}
                     for folder in os.listdir(test_path):
-                        results_path = os.path.join(test_path, folder, code_tag)
+                        results_path = os.path.join(test_path, folder, self.code)
                         tallydata, input = self._extract_single_output(
                             results_path, folder, lib
                         )
@@ -400,7 +289,7 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
 
                 # Results are organized just by lib
                 else:
-                    results_path = os.path.join(test_path, code_tag)
+                    results_path = os.path.join(test_path, self.code)
                     tallydata, input = self._extract_single_output(
                         results_path, None, lib
                     )
@@ -418,11 +307,7 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         consist in the different folders and the second layer will be the
         different files. If it is not multirun, insetead, only one layer of the
         different files will be generated.
-        All files need to be in .csv format. If a more complex format is
-        provided, the user should ovveride the _read_exp_file method.
-        Returns
-        -------
-        None.
+        All files need to be in .csv format.
         """
         exp_results = {}
         if self.multiplerun:
@@ -495,8 +380,7 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
                     file = os.path.join(cd_lib, folder + " " + str(key) + ".csv")
                 data.to_csv(file, header=True, index=False)
 
-    @abstractmethod
-    def _processMCNPdata(self, output: MCNPSimOutput):
+    def _process_tally_data(self, output: MCNPSimOutput):
         """
         Given an mctal file object return the meaningful data extracted. Some
         post-processing on the data may be foreseen at this stage.
@@ -514,16 +398,17 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         item = None
         return item
 
-    @abstractmethod
     def _pp_excel_comparison(self) -> None:
         """
         Responsible for producing excel outputs
         Returns
         -------
         """
-        pass
+        for tally_num, options in self.cfg.excel_options.items():
+            if options.compute_CE:
+                # TODO insert here
+                pass
 
-    @abstractmethod
     def _build_atlas(self, tmp_path: str | os.PathLike, atlas: at.Atlas) -> at.Atlas:
         """
         Fill the atlas with the customized plots. Creation and saving of the
@@ -543,9 +428,49 @@ class ExpBenchmarkOutput(ExpAbstractOutput):
         return atlas
 
 
+class MCNPExpBenchmarkOutput(ExpAbstractBenchmarkOutput, MCNPBenchmarkOutput):
+    def _extract_single_output(
+        self, results_path: str | os.PathLike, folder: str, lib: str
+    ) -> tuple[pd.DataFrame, str]:
+        """Method to extract single output data from MCNP files
 
+        Parameters
+        ----------
+        results_path : str | os.PathLike
+            Path to simulations results.
+        folder : str
+            Sub-folder for multiple run case.
+        lib : str
+            Test library.
 
-class SpectrumOutput(ExpBenchmarkOutput):
+        Returns
+        -------
+        tallydata : pd.DataFrame
+            Pandas dataframe containing tally data.
+        input : str
+            Test name.
+        """
+        mfile, ofile, meshtalfile = self._get_output_files(results_path)
+        # Parse output
+        output = MCNPSimOutput(mfile, ofile, meshtalfile)
+
+        # need to extract the input in case of multi
+        if self.multiplerun:
+            pieces = folder.split("_")
+            input = pieces[-1]
+            if input not in self.inputs:
+                self.inputs.append(input)
+            # self.outputs[input, lib] = output
+            # Get the meaningful results
+            # self.results[input, lib] = self._process_tally_data(output)
+        else:
+            # just treat it as a special case of multiple run
+            # self.outputs[self.testname, lib] = output
+            # Get the meaningful results
+            # self.results[self.testname, lib] = self._process_tally_data(output)
+            input = self.testname
+
+        return output.tallydata, input
 
     def _build_atlas(self, tmp_path, atlas):
         """
@@ -570,9 +495,10 @@ class SpectrumOutput(ExpBenchmarkOutput):
         # Loop over benchmark cases
         for input in tqdm(self.inputs, desc=" Inputs: "):
             # Loop over tallies
-            for tally in self.outputs[(input, self.lib[1])].mctal.tallies:
-                # Get tally number and info
-                tallynum, particle, xlabel = self._get_tally_info(tally)
+            # for tally in self.outputs[(input, self.lib[1])].mctal.tallies:
+            for tallynum, tallydata in self.raw_data[(input, self.lib[1])].items():
+                # # Get tally number and info
+                # tallynum, particle, xlabel = self._get_tally_info(tally)
                 # Collect data
                 quantity_CE = self.bench_conf.loc[tallynum, "Y Label"]
                 e_int = self.bench_conf.loc[tallynum, "C/E X Quantity intervals"]
@@ -993,756 +919,753 @@ def _get_tablevalues(
     return pd.DataFrame(rows)
 
 
-
-
-
-class ShieldingOutput(ExpBenchmarkOutput):
-
-        Parameters
-        ----------
-        output : MCNPSimOutput
-            MCNP simulation output object
-
-        Returns
-        -------
-        None
-        """
-        return None
-
-    def _pp_excel_comparison(self) -> None:
-        """
-        This method prints C/E tables for shielding benchmark comparisons
-
-        Returns
-        -------
-        None.
-        """
-        # FNG SiC specific corrections/normalisations
-        fngsic_k = [0.212, 0.204, 0.202, 0.202]  # Neutron sensitivity of TL detectors
-        fngsic_norm = 1.602e-13 * 1000  # J/MeV * g/kg
-        lib_names_dict = {}
-        column_names = []
-        column_names.append(("Exp", "Value"))
-        column_names.append(("Exp", "Error"))
-        for lib in self.lib[1:]:
-            namelib = self.session.conf.get_lib_name(lib)
-            lib_names_dict[namelib] = lib
-            column_names.append((namelib, "Value"))
-            column_names.append((namelib, "C/E"))
-            column_names.append((namelib, "C/E Error"))
-
-        names = ["Library", ""]
-        column_index = pd.MultiIndex.from_tuples(column_names, names=names)
-        # filepath = self.excel_path_mcnp + '\\' + self.testname + '_CE_tables.xlsx'
-        filepath = os.path.join(self.excel_path, f"{self.testname}_CE_tables.xlsx")
-        with pd.ExcelWriter(filepath, engine="xlsxwriter") as writer:
-            # TODO Replace when other transport codes implemented.
-            code = "mcnp"
-            for mat in self.inputs:
-                exp_folder = os.path.join(self.path_exp_res, mat)
-                exp_filename = self.testname + "_" + mat + ".csv"
-                exp_filepath = os.path.join(exp_folder, exp_filename)
-                exp_data_df = pd.read_csv(exp_filepath)
-                # Get experimental data and errors for the selected benchmark case
-                x = exp_data_df["Depth"].values.tolist()
-                indexes = pd.Index(data=x, name="Depth [cm]")
-                df_tab = pd.DataFrame(index=indexes, columns=column_index)
-                for idx_col in df_tab.columns.values.tolist():
-                    if idx_col[0] == "Exp":
-                        if idx_col[1] == "Value":
-                            vals = exp_data_df.loc[:, "Reaction Rate"].tolist()
-                            df_tab[idx_col] = vals
-                        else:
-                            vals = exp_data_df.loc[:, "Error"].to_numpy() / 100
-                            vals = vals.tolist()
-                            df_tab[idx_col] = vals
-                    else:
-                        t = (mat, lib_names_dict[idx_col[0]])
-                        if idx_col[1] == "Value":
-                            if mat != "TLD":
-                                vals = self.raw_data[t][4]["Value"].values[: len(x)]
-                            else:
-                                # FNG SiC experiment measured the total dose
-                                if self.testname == "FNG-SiC":
-                                    # Neutron dose
-                                    Dn = (
-                                        self.raw_data[t][16]["Value"].values[: len(x)]
-                                    ) * fngsic_norm
-                                    Dn_multiplied = [
-                                        value * constant
-                                        for value, constant in zip(Dn, fngsic_k)
-                                    ]
-                                    # Photon dose
-                                    Dp = (
-                                        self.raw_data[t][26]["Value"].values[: len(x)]
-                                    ) * fngsic_norm
-                                    # Sum neutron and photon dose with neutron sensitivity as a function of depth
-                                    Dt = [sum(pair) for pair in zip(Dn_multiplied, Dp)]
-                                    vals = Dt
-                                else:
-                                    vals = self.raw_data[t][6]["Value"].values[: len(x)]
-                            df_tab[idx_col] = vals
-                        elif idx_col[1] == "C/E Error":
-                            if mat != "TLD":
-                                errs = self.raw_data[t][4]["Error"].values[: len(x)]
-                            else:
-                                if self.testname == "FNG-SiC":
-                                    errs = np.sqrt(
-                                        np.square(
-                                            self.raw_data[t][16]["Error"].values[
-                                                : len(x)
-                                            ]
-                                        )
-                                        + np.square(
-                                            self.raw_data[t][26]["Error"].values[
-                                                : len(x)
-                                            ]
-                                        )
-                                    )
-                                else:
-                                    errs = self.raw_data[t][6]["Error"].values[: len(x)]
-                            vals1 = np.square(errs)
-                            vals2 = np.square(
-                                exp_data_df.loc[:, "Error"].to_numpy() / 100
-                            )
-                            ce_err = np.sqrt(vals1 + vals2)
-                            ce_err = ce_err.tolist()
-                            df_tab[idx_col] = ce_err
-                        else:
-                            if mat != "TLD":
-                                vals1 = self.raw_data[t][4]["Value"].values[: len(x)]
-                            else:
-                                if self.testname == "FNG-SiC":
-                                    # Neutron dose
-                                    Dn = (
-                                        self.raw_data[t][16]["Value"].values[: len(x)]
-                                    ) * fngsic_norm
-                                    Dn_multiplied = [
-                                        value * constant
-                                        for value, constant in zip(Dn, fngsic_k)
-                                    ]
-                                    # Photon dose
-                                    Dp = (
-                                        self.raw_data[t][26]["Value"].values[: len(x)]
-                                    ) * fngsic_norm
-                                    # Sum neutron and photon dose with neutron sensitivity as a function of depth
-                                    Dt = [sum(pair) for pair in zip(Dn_multiplied, Dp)]
-                                    vals1 = Dt
-                                else:
-                                    vals1 = self.raw_data[t][6]["Value"].values[
-                                        : len(x)
-                                    ]
-                            vals2 = exp_data_df.loc[:, "Reaction Rate"].to_numpy()
-                            ratio = vals1 / vals2
-                            ratio = ratio.tolist()
-                            df_tab[idx_col] = vals1 / vals2
-
-                # Assign worksheet title and put into Excel
-                conv_df = self._get_conv_df(mat, len(x))
-                sheet = self.testname.replace("-", " ")
-                sheet_name = sheet + ", Foil {}".format(mat)
-                df_tab.to_excel(writer, sheet_name=sheet_name)
-                conv_df.to_excel(writer, sheet_name=sheet_name, startrow=18)
-
-    def _build_atlas(self, tmp_path: str | os.PathLike, atlas: at.Atlas) -> at.Atlas:
-        """
-        Fill the atlas with the customized plots. Creation and saving of the
-        atlas are handled elsewhere.
-
-        Parameters
-        ----------
-        tmp_path : str | os.PathLike
-            path to the temporary folder containing the plots for the atlas
-        atlas : at.Atlas
-            Object representing the plot Atlas.
-
-        Returns
-        -------
-        atlas : at.Atlas
-            Object representing the plot Atlas.
-        """
-        # FNG SiC specific corrections/normalisations
-        fngsic_k = [0.212, 0.204, 0.202, 0.202]  # Neutron sensitivity of TL detectors
-        fngsic_norm = 1.602e-13 * 1000  # J/MeV * g/kg
-        # Set plot and axes details
-        unit = "-"
-        xlabel = "Shielding thickness [cm]"
-        data = []
-        # TODO Replace when other transport codes implemented.
-        code = "mcnp"
-        for material in tqdm(self.inputs, desc="Foil: "):
-            data = []
-            exp_folder = os.path.join(self.path_exp_res, material)
-            exp_filename = self.testname + "_" + material + ".csv"
-            exp_filepath = os.path.join(exp_folder, exp_filename)
-            exp_data_df = pd.read_csv(exp_filepath)
-            # Get experimental data and errors for the selected benchmark case
-            x = exp_data_df["Depth"].values
-            y = []
-            err = []
-            y.append(exp_data_df["Reaction Rate"].values)
-            err.append(exp_data_df["Error"].values / 100)
-            # Append experimental data to data list (sent to plotter)
-            ylabel = "Experiment"
-            data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
-            data.append(data_exp)
-
-            if material != "TLD":
-                title = self.testname + " experiment, Foil: " + FOILS_REACTION[material]
-            else:
-                if self.testname == "FNG-SiC":
-                    title = (
-                        self.testname
-                        + " experiment, Total absorbed dose in TLD detectors"
-                    )
-                else:
-                    title = (
-                        self.testname
-                        + " experiment, Gamma absorbed dose in TLD-300 detectors"
-                    )
-            # Loop over selected libraries
-            # Loop over selected libraries
-            for lib in self.lib[1:]:
-                # Get library name, assign title to the plot
-                ylabel = self.session.conf.get_lib_name(lib)
-                y = []
-                err = []
-                if material != "TLD":
-                    v = self.raw_data[(material, lib)][4]["Value"].values[: len(x)]
-                else:
-                    if self.testname == "FNG-SiC":
-                        # Neutron dose
-                        Dn = (
-                            self.raw_data[(material, lib)][16]["Value"].values[: len(x)]
-                        ) * fngsic_norm
-                        Dn_multiplied = [
-                            value * constant for value, constant in zip(Dn, fngsic_k)
-                        ]
-                        # Photon dose
-                        Dp = (
-                            self.raw_data[(material, lib)][26]["Value"].values[: len(x)]
-                        ) * fngsic_norm
-                        # Sum neutron and photon dose with neutron sensitivity as a function of depth
-                        v = [sum(pair) for pair in zip(Dn_multiplied, Dp)]
-                    else:
-                        v = self.raw_data[(material, lib)][6]["Value"].values[: len(x)]
-                y.append(v)
-                if material != "TLD":
-                    v = self.raw_data[(material, lib)][4]["Error"].values[: len(x)]
-                else:
-                    if self.testname == "FNG-SiC":
-                        v = np.sqrt(
-                            np.square(
-                                self.raw_data[(material, lib)][16]["Error"].values[
-                                    : len(x)
-                                ]
-                            )
-                            + np.square(
-                                self.raw_data[(material, lib)][26]["Error"].values[
-                                    : len(x)
-                                ]
-                            )
-                        )
-                    else:
-                        v = self.raw_data[(material, lib)][6]["Error"].values[: len(x)]
-                err.append(v)
-                # Append computational data to data list(to be sent to plotter)
-                data_comp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
-                data.append(data_comp)
-
-            # Send data to plotter
-            outname = "tmp"
-            if material != "TLD":
-                quantity = [ACTIVATION_REACTION[material] + " Reaction Rate"]
-            else:
-                quantity = ["Absorbed dose"]
-            atlas.doc.add_heading(title, level=1)
-            plot = Plotter(
-                data, title, tmp_path, outname, quantity, unit, xlabel, self.testname
-            )
-            img_path = plot.plot("Waves")
-            atlas.insert_img(img_path, width=Inches(9))
-            atlas.doc.add_page_break()
-
-        return atlas
-
-    def _get_conv_df(self, mat: str, size: int) -> pd.DataFrame:
-        """
-        Method to calculate average and maximum uncertainties
-
-        Parameters
-        ----------
-        mat : str
-            String denoting material
-        size : int
-            Integer denoting size of array
-
-        Returns
-        -------
-        conv_df : pd.DataFrame
-            Dataframe containing Max Error and Average Error columns
-        """
-        conv_df = pd.DataFrame()
-        for lib in self.lib[1:]:
-            if mat != "TLD":
-                max = self.raw_data[(mat, lib)][4]["Error"].values[:size].max()
-                avg = self.raw_data[(mat, lib)][4]["Error"].values[:size].mean()
-            else:
-                if self.testname == "FNG-SiC":
-                    v = np.sqrt(
-                        np.square(self.raw_data[(mat, lib)][16]["Error"].values[:size])
-                        + np.square(
-                            self.raw_data[(mat, lib)][26]["Error"].values[:size]
-                        )
-                    )
-                    max = np.max(v)
-                    avg = np.mean(v)
-                else:
-                    max = self.raw_data[(mat, lib)][6]["Error"].values[:size].max()
-                    avg = self.raw_data[(mat, lib)][6]["Error"].values[:size].mean()
-            library = self.session.conf.get_lib_name(lib)
-            conv_df.loc["Max Error", library] = max
-            conv_df.loc["Average Error", library] = avg
-        return conv_df
-
-
-class MultipleSpectrumOutput(SpectrumOutput):
-    def _build_atlas(self, tmp_path: str | os.PathLike, atlas: at.Atlas) -> at.Atlas:
-        """
-        Fill the atlas with the customized plots. Creation and saving of the
-        atlas are handled elsewhere.
-
-        Parameters
-        ----------
-        tmp_path : str | os.PathLike
-            path to the temporary folder containing the plots for the atlas
-        atlas : at.Atlas
-            Object representing the plot Atlas.
-
-        Returns
-        -------
-        atlas : at.Atlas
-            Object representing the plot Atlas.
-        """
-        self.tables = []
-        self.groups = pd.read_excel(self.cnf_path)
-        self.groups = self.groups.set_index(["Group", "Tally", "Input"])
-        self.group_list = self.groups.index.get_level_values("Group").unique().tolist()
-        for group in self.group_list:
-            self._plot_tally_group(group, tmp_path, atlas)
-
-        # Dump C/E table
-        self._dump_ce_table()
-
-        return atlas
-
-    def _plot_tally_group(
-        self, group: list, tmp_path: str | os.PathLike, atlas: at.Atlas
-    ) -> at.Atlas:
-        """
-        Plots tallies for a given group of outputs and add to Atlas object
-
-        Parameters
-        ----------
-        group : list
-            list of groups in the experimental benchmark object, outputs are
-            grouped by material, several tallies for each material/group
-        tmp_path : str or os.PathLike
-            path to temporary atlas plot folder
-        atlas : JADE Atlas
-            Atlas object
-
-        Returns
-        -------
-        atlas : JADE Atlas
-            adjusted Atlas object
-        """
-        # Extract 'Tally' and 'Input' values for the current 'Group'
-        group_data = self.groups.xs(group, level="Group", drop_level=False)
-        data_group = {}
-        group_lab = []
-        mult_factors = group_data["Multiplying factor"].values.tolist()
-        for m, idx in enumerate(group_data.index.tolist()):
-            tallynum = idx[1]
-            input = idx[2]
-            if str(tallynum) not in self.results[input, self.lib[1]].keys():
-                continue
-            quantity = group_data.loc[(group, tallynum, input), "Quantity"]
-            particle = group_data.loc[(group, tallynum, input), "Particle"]
-            add_info = group_data.loc[(group, tallynum, input), "Y Label"]
-            quant_string = particle + " " + quantity + " " + add_info
-            e_int = group_data.loc[(group, tallynum, input), "C/E X Quantity intervals"]
-            e_int = e_int.split("-")
-
-            # Convert the list of number strings into a list of integers
-            e_intervals = [float(num) for num in e_int]
-            data_temp, xlabel = self._data_collect(
-                input, str(tallynum), quant_string, e_intervals
-            )
-            if data_temp is None:
-                continue
-            data_group[m] = data_temp
-            unit = group_data.loc[(group, tallynum, input), "Y Unit"]
-
-            group_lab.append(add_info)
-            # Once the data is collected it is passed to the plotter
-        title = self._define_title(input, particle, quantity)
-        outname = "tmp"
-        plot = Plotter(
-            data_group,
-            title,
-            tmp_path,
-            outname,
-            quantity,
-            unit,
-            xlabel,
-            self.testname,
-            group_num=group,
-            add_labels=group_lab,
-            mult_factors=mult_factors,
-        )
-        img_path = plot.plot("Experimental points group")
-        atlas.doc.add_heading(title, level=1)
-        atlas.insert_img(img_path)
-        img_path = plot.plot("Experimental points group CE")
-        atlas.doc.add_heading(title + " C/E", level=1)
-        atlas.insert_img(img_path, width=Inches(9))
-        return atlas
-
-    def _define_title(self, input: str, particle: str, quantity: str) -> str:
-        """
-        Determines which benchmark is being compared and assigns title
-        accordinly
-
-        Parameters
-        ----------
-        input : str
-            Test name
-        particle : str
-            Particle being tallied
-        quantity : str
-            Type of quantity being plotted on the X axis
-
-        Returns
-        -------
-        Title: str
-            Title string
-        """
-
-        if not self.multiplerun:
-            title = self.testname + ", " + particle + " " + quantity
-        elif self.testname == "Tiara-BC":
-            mat = input.split("-")[0]
-            if mat == "cc":
-                material = "Concrete"
-            else:
-                material = "Iron"
-            energy = input.split("-")[1]
-            sh_th = input.split("-")[2]
-            add_coll = input.split("-")[3]
-            title = (
-                self.testname
-                + ", Shielding: "
-                + material
-                + ", "
-                + sh_th
-                + "cm; Source energy: "
-                + energy
-                + " MeV; Additional collimator: "
-                + add_coll
-                + " cm"
-            )
-        elif self.testname == "FNS-TOF":
-            mat = input.split("-")[0]
-            sl_th = input.split("-")[1]
-            title = self.testname + ", " + sl_th + "cm " + mat + " slab"
-        else:
-            title = self.testname + ", " + particle + " " + quantity
-        return title
-
-
-class FNGHCPBOutput(ExperimentalOutput):
-    def _processMCNPdata(self, output: MCNPSimOutput) -> None:
-        """
-        Used to override parent function as this is not required.
-
-        Parameters
-        ----------
-        output : MCNPSimOutput
-            MCNP simulation output object
-
-        Returns
-        -------
-        None
-        """
-        return None
-
-    def _pp_excel_comparison(self) -> None:
-        """
-        This method prints C/E tables for shielding benchmark comparisons
-
-        Returns
-        -------
-        None.
-        """
-
-        lib_names_dict = {}
-        column_names = []
-        column_names.append(("Exp", "Value"))
-        column_names.append(("Exp", "Error"))
-        for lib in self.lib[1:]:
-            namelib = self.session.conf.get_lib_name(lib)
-            lib_names_dict[namelib] = lib
-            column_names.append((namelib, "Value"))
-            column_names.append((namelib, "C/E"))
-            column_names.append((namelib, "C/E Error"))
-
-        names = ["Library", ""]
-        column_index = pd.MultiIndex.from_tuples(column_names, names=names)
-        filepath = self.excel_path + "\\" + self.testname + "_CE_tables.xlsx"
-        with pd.ExcelWriter(filepath, engine="xlsxwriter") as writer:
-            code = "mcnp"
-            for mat in self.inputs:
-                exp_folder = os.path.join(self.path_exp_res, mat)
-                exp_filename = self.testname + "_" + mat + ".csv"
-                exp_filepath = os.path.join(exp_folder, exp_filename)
-                exp_data_df = pd.read_csv(exp_filepath)
-
-                # Get experimental data and errors for the selected benchmark case
-                if mat == "H3":
-                    x = exp_data_df["Pellet"].values.tolist()
-                    indexes = pd.Index(data=x, name="Pellet #")
-                else:
-                    x = exp_data_df["Depth"].values.tolist()
-                    indexes = pd.Index(data=x, name="Depth [cm]")
-
-                df_tab = pd.DataFrame(index=indexes, columns=column_index)
-                for idx_col in df_tab.columns.values.tolist():
-                    if idx_col[0] == "Exp":
-                        if idx_col[1] == "Value":
-                            if mat == "H3":
-                                vals = exp_data_df.loc[:, "Activity"].tolist()
-                            else:
-                                vals = exp_data_df.loc[:, "Reaction Rate"].tolist()
-                            df_tab[idx_col] = vals
-                        else:
-                            vals = exp_data_df.loc[:, "Error"].to_numpy() / 100
-                            vals = vals.tolist()
-                            df_tab[idx_col] = vals
-                    else:
-                        t = (mat, lib_names_dict[idx_col[0]])
-                        if idx_col[1] == "Value":
-                            if mat != "H3":
-                                vals = self.raw_data[t][4]["Value"].values[: len(x)]
-                            else:
-                                # Total activity
-                                vals = []
-                                for i in range(4):
-                                    vals.extend(
-                                        (self.raw_data[t][84]["Value"].values[i::4])
-                                    )
-
-                            df_tab[idx_col] = vals
-
-                        elif idx_col[1] == "C/E Error":
-                            if mat != "H3":
-                                errs = self.raw_data[t][4]["Error"].values[: len(x)]
-                            else:
-                                errs = []
-                                for i in range(4):
-                                    yerr = self.raw_data[t][84]["Error"].values[i::4]
-                                    errs.extend(yerr)
-
-                            vals1 = np.square(errs)
-                            vals2 = np.square(
-                                exp_data_df.loc[:, "Error"].to_numpy() / 100
-                            )
-                            ce_err = np.sqrt(vals1 + vals2)
-                            ce_err = ce_err.tolist()
-                            df_tab[idx_col] = ce_err
-                        # Calculate C/E value
-                        else:
-                            if mat != "H3":
-                                vals1 = self.raw_data[t][4]["Value"].values[: len(x)]
-                            else:
-                                vals1 = []
-                                for i in range(4):
-                                    vals1.extend(
-                                        self.raw_data[t][84]["Value"].values[i::4]
-                                    )
-
-                            if mat == "H3":
-                                vals2 = exp_data_df.loc[:, "Activity"].to_numpy()
-                            else:
-                                vals2 = exp_data_df.loc[:, "Reaction Rate"].to_numpy()
-                            ratio = vals1 / vals2
-                            ratio = ratio.tolist()
-                            df_tab[idx_col] = vals1 / vals2
-
-                # Assign worksheet title and put into Excel
-                conv_df = self._get_conv_df(mat, len(x))
-                sheet = self.testname.replace("-", " ")
-                if mat != "H3":
-                    sheet_name = sheet + ", Foil {}".format(mat)
-                else:
-                    sheet_name = sheet + " H3 activity"
-                df_tab.to_excel(writer, sheet_name=sheet_name)
-                conv_df.to_excel(writer, sheet_name=sheet_name, startrow=55)
-                # Close the Pandas Excel writer object and output the Excel file
-
-    def _build_atlas(self, tmp_path: str | os.PathLike, atlas: at.Atlas) -> at.Atlas:
-        """
-        Fill the atlas with the customized plots. Creation and saving of the
-        atlas are handled elsewhere.
-
-        Parameters
-        ----------
-        tmp_path : str | os.PathLike
-            path to the temporary folder containing the plots for the atlas
-        atlas : at.Atlas
-            Object representing the plot Atlas.
-
-        Returns
-        -------
-        atlas : at.Atlas
-            Object representing the plot Atlas.
-        """
-        for material in tqdm(self.inputs):
-            # Tritium Activity
-            if material == "H3":
-                unit = "Bq/g"
-                quantity = "Activity"
-                for i in range(4):
-                    data = []
-                    # y = []
-                    # err = []
-                    exp_folder = os.path.join(self.path_exp_res, material)
-                    exp_filename = self.testname + "_" + material + ".csv"
-                    exp_filepath = os.path.join(exp_folder, exp_filename)
-                    exp_data_df = pd.read_csv(exp_filepath)
-
-                    xlabel = "Pellet no."
-                    x = list(range(1, 13))
-
-                    y = exp_data_df["Activity"].values[i * 12 : (i + 1) * 12]
-                    err = exp_data_df["Error"].values[i * 12 : (i + 1) * 12] / 100
-
-                    ylabel_exp = "Experiment"
-                    data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel_exp}
-                    data.append(data_exp)
-
-                    for lib in self.lib[1:]:
-                        # y = []
-                        # err = []
-                        # Total tritium production Li6 + Li7
-                        ycalc = self.raw_data[(material, lib)][84]["Value"].values[i::4]
-
-                        yerr = np.square(
-                            self.raw_data[(material, lib)][84]["Error"].values[i::4]
-                        )
-
-                        y = ycalc
-                        err = yerr
-
-                        ylabel_calc = self.session.conf.get_lib_name(lib)
-                        data_calc = {"x": x, "y": y, "err": err, "ylabel": ylabel_calc}
-                        data.append(data_calc)
-
-                    title = f"ENEA{2*(i+1)} pellet stack"
-                    outname = "tmp"
-                    plot = Plotter(
-                        data,
-                        title,
-                        tmp_path,
-                        outname,
-                        quantity,
-                        unit,
-                        xlabel,
-                        self.testname,
-                    )
-                    img_path = plot.plot("Discrete Experimental points")
-                    atlas.insert_img(img_path)
-            # Foils
-            else:
-                unit = "-"
-                quantity = ["C/E"]
-                data = []
-                exp_folder = os.path.join(self.path_exp_res, material)
-                exp_filename = self.testname + "_" + material + ".csv"
-                exp_filepath = os.path.join(exp_folder, exp_filename)
-                exp_data_df = pd.read_csv(exp_filepath)
-
-                # Get experimental data and errors for the selected benchmark case
-                xlabel = "Shielding thickness [cm]"
-                x = list(exp_data_df["Depth"].values)
-                y = []
-                err = []
-                y.append(exp_data_df["Reaction Rate"].values)
-                err.append(exp_data_df["Error"].values / 100)
-                # Append experimental data to data list (sent to plotter)
-                ylabel = "Experiment"
-                data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
-                data.append(data_exp)
-
-                title = self.testname + " experiment, Foil: " + material
-
-                # Loop over selected libraries
-                for lib in self.lib[1:]:
-                    # Get library name, assign title to the plot
-                    ylabel = self.session.conf.get_lib_name(lib)
-                    y = []
-                    err = []
-
-                    ycalc = self.raw_data[(material, lib)][4]["Value"].values[: len(x)]
-                    y.append(ycalc)
-
-                    yerr = self.raw_data[(material, lib)][4]["Error"].values[: len(x)]
-                    err.append(yerr)
-
-                    # Append computational data to data list(to be sent to plotter)
-                    data_comp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
-                    data.append(data_comp)
-
-                outname = "tmp"
-                plot = Plotter(
-                    data,
-                    title,
-                    tmp_path,
-                    outname,
-                    quantity,
-                    unit,
-                    xlabel,
-                    self.testname,
-                )
-                img_path = plot.plot("Waves")
-                atlas.insert_img(img_path)
-        return atlas
-
-    def _get_conv_df(self, mat: str, size: int) -> pd.DataFrame:
-        """
-        Method to calculate average and maximum uncertainties
-
-        Parameters
-        ----------
-        mat : str
-            String denoting material
-        size : int
-            Integer denoting size of array
-
-        Returns
-        -------
-        conv_df : pd.DataFrame
-            Dataframe containing Max Error and Average Error columns
-        """
-        conv_df = pd.DataFrame()
-        for lib in self.lib[1:]:
-            if mat != "H3":
-                max = self.raw_data[(mat, lib)][4]["Error"].values[:size].max()
-                avg = self.raw_data[(mat, lib)][4]["Error"].values[:size].mean()
-            else:
-                max = self.raw_data[(mat, lib)][84]["Error"].values[:size].max()
-                avg = self.raw_data[(mat, lib)][84]["Error"].values[:size].mean()
-            library = self.session.conf.get_lib_name(lib)
-            conv_df.loc["Max Error", library] = max
-            conv_df.loc["Average Error", library] = avg
-        return conv_df
+# class ShieldingOutput(ExpBenchmarkOutput):
+
+#         Parameters
+#         ----------
+#         output : MCNPSimOutput
+#             MCNP simulation output object
+
+#         Returns
+#         -------
+#         None
+#         """
+#         return None
+
+#     def _pp_excel_comparison(self) -> None:
+#         """
+#         This method prints C/E tables for shielding benchmark comparisons
+
+#         Returns
+#         -------
+#         None.
+#         """
+#         # FNG SiC specific corrections/normalisations
+#         fngsic_k = [0.212, 0.204, 0.202, 0.202]  # Neutron sensitivity of TL detectors
+#         fngsic_norm = 1.602e-13 * 1000  # J/MeV * g/kg
+#         lib_names_dict = {}
+#         column_names = []
+#         column_names.append(("Exp", "Value"))
+#         column_names.append(("Exp", "Error"))
+#         for lib in self.lib[1:]:
+#             namelib = self.session.conf.get_lib_name(lib)
+#             lib_names_dict[namelib] = lib
+#             column_names.append((namelib, "Value"))
+#             column_names.append((namelib, "C/E"))
+#             column_names.append((namelib, "C/E Error"))
+
+#         names = ["Library", ""]
+#         column_index = pd.MultiIndex.from_tuples(column_names, names=names)
+#         # filepath = self.excel_path_mcnp + '\\' + self.testname + '_CE_tables.xlsx'
+#         filepath = os.path.join(self.excel_path, f"{self.testname}_CE_tables.xlsx")
+#         with pd.ExcelWriter(filepath, engine="xlsxwriter") as writer:
+#             # TODO Replace when other transport codes implemented.
+#             code = "mcnp"
+#             for mat in self.inputs:
+#                 exp_folder = os.path.join(self.path_exp_res, mat)
+#                 exp_filename = self.testname + "_" + mat + ".csv"
+#                 exp_filepath = os.path.join(exp_folder, exp_filename)
+#                 exp_data_df = pd.read_csv(exp_filepath)
+#                 # Get experimental data and errors for the selected benchmark case
+#                 x = exp_data_df["Depth"].values.tolist()
+#                 indexes = pd.Index(data=x, name="Depth [cm]")
+#                 df_tab = pd.DataFrame(index=indexes, columns=column_index)
+#                 for idx_col in df_tab.columns.values.tolist():
+#                     if idx_col[0] == "Exp":
+#                         if idx_col[1] == "Value":
+#                             vals = exp_data_df.loc[:, "Reaction Rate"].tolist()
+#                             df_tab[idx_col] = vals
+#                         else:
+#                             vals = exp_data_df.loc[:, "Error"].to_numpy() / 100
+#                             vals = vals.tolist()
+#                             df_tab[idx_col] = vals
+#                     else:
+#                         t = (mat, lib_names_dict[idx_col[0]])
+#                         if idx_col[1] == "Value":
+#                             if mat != "TLD":
+#                                 vals = self.raw_data[t][4]["Value"].values[: len(x)]
+#                             else:
+#                                 # FNG SiC experiment measured the total dose
+#                                 if self.testname == "FNG-SiC":
+#                                     # Neutron dose
+#                                     Dn = (
+#                                         self.raw_data[t][16]["Value"].values[: len(x)]
+#                                     ) * fngsic_norm
+#                                     Dn_multiplied = [
+#                                         value * constant
+#                                         for value, constant in zip(Dn, fngsic_k)
+#                                     ]
+#                                     # Photon dose
+#                                     Dp = (
+#                                         self.raw_data[t][26]["Value"].values[: len(x)]
+#                                     ) * fngsic_norm
+#                                     # Sum neutron and photon dose with neutron sensitivity as a function of depth
+#                                     Dt = [sum(pair) for pair in zip(Dn_multiplied, Dp)]
+#                                     vals = Dt
+#                                 else:
+#                                     vals = self.raw_data[t][6]["Value"].values[: len(x)]
+#                             df_tab[idx_col] = vals
+#                         elif idx_col[1] == "C/E Error":
+#                             if mat != "TLD":
+#                                 errs = self.raw_data[t][4]["Error"].values[: len(x)]
+#                             else:
+#                                 if self.testname == "FNG-SiC":
+#                                     errs = np.sqrt(
+#                                         np.square(
+#                                             self.raw_data[t][16]["Error"].values[
+#                                                 : len(x)
+#                                             ]
+#                                         )
+#                                         + np.square(
+#                                             self.raw_data[t][26]["Error"].values[
+#                                                 : len(x)
+#                                             ]
+#                                         )
+#                                     )
+#                                 else:
+#                                     errs = self.raw_data[t][6]["Error"].values[: len(x)]
+#                             vals1 = np.square(errs)
+#                             vals2 = np.square(
+#                                 exp_data_df.loc[:, "Error"].to_numpy() / 100
+#                             )
+#                             ce_err = np.sqrt(vals1 + vals2)
+#                             ce_err = ce_err.tolist()
+#                             df_tab[idx_col] = ce_err
+#                         else:
+#                             if mat != "TLD":
+#                                 vals1 = self.raw_data[t][4]["Value"].values[: len(x)]
+#                             else:
+#                                 if self.testname == "FNG-SiC":
+#                                     # Neutron dose
+#                                     Dn = (
+#                                         self.raw_data[t][16]["Value"].values[: len(x)]
+#                                     ) * fngsic_norm
+#                                     Dn_multiplied = [
+#                                         value * constant
+#                                         for value, constant in zip(Dn, fngsic_k)
+#                                     ]
+#                                     # Photon dose
+#                                     Dp = (
+#                                         self.raw_data[t][26]["Value"].values[: len(x)]
+#                                     ) * fngsic_norm
+#                                     # Sum neutron and photon dose with neutron sensitivity as a function of depth
+#                                     Dt = [sum(pair) for pair in zip(Dn_multiplied, Dp)]
+#                                     vals1 = Dt
+#                                 else:
+#                                     vals1 = self.raw_data[t][6]["Value"].values[
+#                                         : len(x)
+#                                     ]
+#                             vals2 = exp_data_df.loc[:, "Reaction Rate"].to_numpy()
+#                             ratio = vals1 / vals2
+#                             ratio = ratio.tolist()
+#                             df_tab[idx_col] = vals1 / vals2
+
+#                 # Assign worksheet title and put into Excel
+#                 conv_df = self._get_conv_df(mat, len(x))
+#                 sheet = self.testname.replace("-", " ")
+#                 sheet_name = sheet + ", Foil {}".format(mat)
+#                 df_tab.to_excel(writer, sheet_name=sheet_name)
+#                 conv_df.to_excel(writer, sheet_name=sheet_name, startrow=18)
+
+#     def _build_atlas(self, tmp_path: str | os.PathLike, atlas: at.Atlas) -> at.Atlas:
+#         """
+#         Fill the atlas with the customized plots. Creation and saving of the
+#         atlas are handled elsewhere.
+
+#         Parameters
+#         ----------
+#         tmp_path : str | os.PathLike
+#             path to the temporary folder containing the plots for the atlas
+#         atlas : at.Atlas
+#             Object representing the plot Atlas.
+
+#         Returns
+#         -------
+#         atlas : at.Atlas
+#             Object representing the plot Atlas.
+#         """
+#         # FNG SiC specific corrections/normalisations
+#         fngsic_k = [0.212, 0.204, 0.202, 0.202]  # Neutron sensitivity of TL detectors
+#         fngsic_norm = 1.602e-13 * 1000  # J/MeV * g/kg
+#         # Set plot and axes details
+#         unit = "-"
+#         xlabel = "Shielding thickness [cm]"
+#         data = []
+#         # TODO Replace when other transport codes implemented.
+#         code = "mcnp"
+#         for material in tqdm(self.inputs, desc="Foil: "):
+#             data = []
+#             exp_folder = os.path.join(self.path_exp_res, material)
+#             exp_filename = self.testname + "_" + material + ".csv"
+#             exp_filepath = os.path.join(exp_folder, exp_filename)
+#             exp_data_df = pd.read_csv(exp_filepath)
+#             # Get experimental data and errors for the selected benchmark case
+#             x = exp_data_df["Depth"].values
+#             y = []
+#             err = []
+#             y.append(exp_data_df["Reaction Rate"].values)
+#             err.append(exp_data_df["Error"].values / 100)
+#             # Append experimental data to data list (sent to plotter)
+#             ylabel = "Experiment"
+#             data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
+#             data.append(data_exp)
+
+#             if material != "TLD":
+#                 title = self.testname + " experiment, Foil: " + FOILS_REACTION[material]
+#             else:
+#                 if self.testname == "FNG-SiC":
+#                     title = (
+#                         self.testname
+#                         + " experiment, Total absorbed dose in TLD detectors"
+#                     )
+#                 else:
+#                     title = (
+#                         self.testname
+#                         + " experiment, Gamma absorbed dose in TLD-300 detectors"
+#                     )
+#             # Loop over selected libraries
+#             # Loop over selected libraries
+#             for lib in self.lib[1:]:
+#                 # Get library name, assign title to the plot
+#                 ylabel = self.session.conf.get_lib_name(lib)
+#                 y = []
+#                 err = []
+#                 if material != "TLD":
+#                     v = self.raw_data[(material, lib)][4]["Value"].values[: len(x)]
+#                 else:
+#                     if self.testname == "FNG-SiC":
+#                         # Neutron dose
+#                         Dn = (
+#                             self.raw_data[(material, lib)][16]["Value"].values[: len(x)]
+#                         ) * fngsic_norm
+#                         Dn_multiplied = [
+#                             value * constant for value, constant in zip(Dn, fngsic_k)
+#                         ]
+#                         # Photon dose
+#                         Dp = (
+#                             self.raw_data[(material, lib)][26]["Value"].values[: len(x)]
+#                         ) * fngsic_norm
+#                         # Sum neutron and photon dose with neutron sensitivity as a function of depth
+#                         v = [sum(pair) for pair in zip(Dn_multiplied, Dp)]
+#                     else:
+#                         v = self.raw_data[(material, lib)][6]["Value"].values[: len(x)]
+#                 y.append(v)
+#                 if material != "TLD":
+#                     v = self.raw_data[(material, lib)][4]["Error"].values[: len(x)]
+#                 else:
+#                     if self.testname == "FNG-SiC":
+#                         v = np.sqrt(
+#                             np.square(
+#                                 self.raw_data[(material, lib)][16]["Error"].values[
+#                                     : len(x)
+#                                 ]
+#                             )
+#                             + np.square(
+#                                 self.raw_data[(material, lib)][26]["Error"].values[
+#                                     : len(x)
+#                                 ]
+#                             )
+#                         )
+#                     else:
+#                         v = self.raw_data[(material, lib)][6]["Error"].values[: len(x)]
+#                 err.append(v)
+#                 # Append computational data to data list(to be sent to plotter)
+#                 data_comp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
+#                 data.append(data_comp)
+
+#             # Send data to plotter
+#             outname = "tmp"
+#             if material != "TLD":
+#                 quantity = [ACTIVATION_REACTION[material] + " Reaction Rate"]
+#             else:
+#                 quantity = ["Absorbed dose"]
+#             atlas.doc.add_heading(title, level=1)
+#             plot = Plotter(
+#                 data, title, tmp_path, outname, quantity, unit, xlabel, self.testname
+#             )
+#             img_path = plot.plot("Waves")
+#             atlas.insert_img(img_path, width=Inches(9))
+#             atlas.doc.add_page_break()
+
+#         return atlas
+
+#     def _get_conv_df(self, mat: str, size: int) -> pd.DataFrame:
+#         """
+#         Method to calculate average and maximum uncertainties
+
+#         Parameters
+#         ----------
+#         mat : str
+#             String denoting material
+#         size : int
+#             Integer denoting size of array
+
+#         Returns
+#         -------
+#         conv_df : pd.DataFrame
+#             Dataframe containing Max Error and Average Error columns
+#         """
+#         conv_df = pd.DataFrame()
+#         for lib in self.lib[1:]:
+#             if mat != "TLD":
+#                 max = self.raw_data[(mat, lib)][4]["Error"].values[:size].max()
+#                 avg = self.raw_data[(mat, lib)][4]["Error"].values[:size].mean()
+#             else:
+#                 if self.testname == "FNG-SiC":
+#                     v = np.sqrt(
+#                         np.square(self.raw_data[(mat, lib)][16]["Error"].values[:size])
+#                         + np.square(
+#                             self.raw_data[(mat, lib)][26]["Error"].values[:size]
+#                         )
+#                     )
+#                     max = np.max(v)
+#                     avg = np.mean(v)
+#                 else:
+#                     max = self.raw_data[(mat, lib)][6]["Error"].values[:size].max()
+#                     avg = self.raw_data[(mat, lib)][6]["Error"].values[:size].mean()
+#             library = self.session.conf.get_lib_name(lib)
+#             conv_df.loc["Max Error", library] = max
+#             conv_df.loc["Average Error", library] = avg
+#         return conv_df
+
+
+# class MultipleSpectrumOutput(SpectrumOutput):
+#     def _build_atlas(self, tmp_path: str | os.PathLike, atlas: at.Atlas) -> at.Atlas:
+#         """
+#         Fill the atlas with the customized plots. Creation and saving of the
+#         atlas are handled elsewhere.
+
+#         Parameters
+#         ----------
+#         tmp_path : str | os.PathLike
+#             path to the temporary folder containing the plots for the atlas
+#         atlas : at.Atlas
+#             Object representing the plot Atlas.
+
+#         Returns
+#         -------
+#         atlas : at.Atlas
+#             Object representing the plot Atlas.
+#         """
+#         self.tables = []
+#         self.groups = pd.read_excel(self.cnf_path)
+#         self.groups = self.groups.set_index(["Group", "Tally", "Input"])
+#         self.group_list = self.groups.index.get_level_values("Group").unique().tolist()
+#         for group in self.group_list:
+#             self._plot_tally_group(group, tmp_path, atlas)
+
+#         # Dump C/E table
+#         self._dump_ce_table()
+
+#         return atlas
+
+#     def _plot_tally_group(
+#         self, group: list, tmp_path: str | os.PathLike, atlas: at.Atlas
+#     ) -> at.Atlas:
+#         """
+#         Plots tallies for a given group of outputs and add to Atlas object
+
+#         Parameters
+#         ----------
+#         group : list
+#             list of groups in the experimental benchmark object, outputs are
+#             grouped by material, several tallies for each material/group
+#         tmp_path : str or os.PathLike
+#             path to temporary atlas plot folder
+#         atlas : JADE Atlas
+#             Atlas object
+
+#         Returns
+#         -------
+#         atlas : JADE Atlas
+#             adjusted Atlas object
+#         """
+#         # Extract 'Tally' and 'Input' values for the current 'Group'
+#         group_data = self.groups.xs(group, level="Group", drop_level=False)
+#         data_group = {}
+#         group_lab = []
+#         mult_factors = group_data["Multiplying factor"].values.tolist()
+#         for m, idx in enumerate(group_data.index.tolist()):
+#             tallynum = idx[1]
+#             input = idx[2]
+#             if str(tallynum) not in self.results[input, self.lib[1]].keys():
+#                 continue
+#             quantity = group_data.loc[(group, tallynum, input), "Quantity"]
+#             particle = group_data.loc[(group, tallynum, input), "Particle"]
+#             add_info = group_data.loc[(group, tallynum, input), "Y Label"]
+#             quant_string = particle + " " + quantity + " " + add_info
+#             e_int = group_data.loc[(group, tallynum, input), "C/E X Quantity intervals"]
+#             e_int = e_int.split("-")
+
+#             # Convert the list of number strings into a list of integers
+#             e_intervals = [float(num) for num in e_int]
+#             data_temp, xlabel = self._data_collect(
+#                 input, str(tallynum), quant_string, e_intervals
+#             )
+#             if data_temp is None:
+#                 continue
+#             data_group[m] = data_temp
+#             unit = group_data.loc[(group, tallynum, input), "Y Unit"]
+
+#             group_lab.append(add_info)
+#             # Once the data is collected it is passed to the plotter
+#         title = self._define_title(input, particle, quantity)
+#         outname = "tmp"
+#         plot = Plotter(
+#             data_group,
+#             title,
+#             tmp_path,
+#             outname,
+#             quantity,
+#             unit,
+#             xlabel,
+#             self.testname,
+#             group_num=group,
+#             add_labels=group_lab,
+#             mult_factors=mult_factors,
+#         )
+#         img_path = plot.plot("Experimental points group")
+#         atlas.doc.add_heading(title, level=1)
+#         atlas.insert_img(img_path)
+#         img_path = plot.plot("Experimental points group CE")
+#         atlas.doc.add_heading(title + " C/E", level=1)
+#         atlas.insert_img(img_path, width=Inches(9))
+#         return atlas
+
+#     def _define_title(self, input: str, particle: str, quantity: str) -> str:
+#         """
+#         Determines which benchmark is being compared and assigns title
+#         accordinly
+
+#         Parameters
+#         ----------
+#         input : str
+#             Test name
+#         particle : str
+#             Particle being tallied
+#         quantity : str
+#             Type of quantity being plotted on the X axis
+
+#         Returns
+#         -------
+#         Title: str
+#             Title string
+#         """
+
+#         if not self.multiplerun:
+#             title = self.testname + ", " + particle + " " + quantity
+#         elif self.testname == "Tiara-BC":
+#             mat = input.split("-")[0]
+#             if mat == "cc":
+#                 material = "Concrete"
+#             else:
+#                 material = "Iron"
+#             energy = input.split("-")[1]
+#             sh_th = input.split("-")[2]
+#             add_coll = input.split("-")[3]
+#             title = (
+#                 self.testname
+#                 + ", Shielding: "
+#                 + material
+#                 + ", "
+#                 + sh_th
+#                 + "cm; Source energy: "
+#                 + energy
+#                 + " MeV; Additional collimator: "
+#                 + add_coll
+#                 + " cm"
+#             )
+#         elif self.testname == "FNS-TOF":
+#             mat = input.split("-")[0]
+#             sl_th = input.split("-")[1]
+#             title = self.testname + ", " + sl_th + "cm " + mat + " slab"
+#         else:
+#             title = self.testname + ", " + particle + " " + quantity
+#         return title
+
+
+# class FNGHCPBOutput(ExperimentalOutput):
+#     def _processMCNPdata(self, output: MCNPSimOutput) -> None:
+#         """
+#         Used to override parent function as this is not required.
+
+#         Parameters
+#         ----------
+#         output : MCNPSimOutput
+#             MCNP simulation output object
+
+#         Returns
+#         -------
+#         None
+#         """
+#         return None
+
+#     def _pp_excel_comparison(self) -> None:
+#         """
+#         This method prints C/E tables for shielding benchmark comparisons
+
+#         Returns
+#         -------
+#         None.
+#         """
+
+#         lib_names_dict = {}
+#         column_names = []
+#         column_names.append(("Exp", "Value"))
+#         column_names.append(("Exp", "Error"))
+#         for lib in self.lib[1:]:
+#             namelib = self.session.conf.get_lib_name(lib)
+#             lib_names_dict[namelib] = lib
+#             column_names.append((namelib, "Value"))
+#             column_names.append((namelib, "C/E"))
+#             column_names.append((namelib, "C/E Error"))
+
+#         names = ["Library", ""]
+#         column_index = pd.MultiIndex.from_tuples(column_names, names=names)
+#         filepath = self.excel_path + "\\" + self.testname + "_CE_tables.xlsx"
+#         with pd.ExcelWriter(filepath, engine="xlsxwriter") as writer:
+#             code = "mcnp"
+#             for mat in self.inputs:
+#                 exp_folder = os.path.join(self.path_exp_res, mat)
+#                 exp_filename = self.testname + "_" + mat + ".csv"
+#                 exp_filepath = os.path.join(exp_folder, exp_filename)
+#                 exp_data_df = pd.read_csv(exp_filepath)
+
+#                 # Get experimental data and errors for the selected benchmark case
+#                 if mat == "H3":
+#                     x = exp_data_df["Pellet"].values.tolist()
+#                     indexes = pd.Index(data=x, name="Pellet #")
+#                 else:
+#                     x = exp_data_df["Depth"].values.tolist()
+#                     indexes = pd.Index(data=x, name="Depth [cm]")
+
+#                 df_tab = pd.DataFrame(index=indexes, columns=column_index)
+#                 for idx_col in df_tab.columns.values.tolist():
+#                     if idx_col[0] == "Exp":
+#                         if idx_col[1] == "Value":
+#                             if mat == "H3":
+#                                 vals = exp_data_df.loc[:, "Activity"].tolist()
+#                             else:
+#                                 vals = exp_data_df.loc[:, "Reaction Rate"].tolist()
+#                             df_tab[idx_col] = vals
+#                         else:
+#                             vals = exp_data_df.loc[:, "Error"].to_numpy() / 100
+#                             vals = vals.tolist()
+#                             df_tab[idx_col] = vals
+#                     else:
+#                         t = (mat, lib_names_dict[idx_col[0]])
+#                         if idx_col[1] == "Value":
+#                             if mat != "H3":
+#                                 vals = self.raw_data[t][4]["Value"].values[: len(x)]
+#                             else:
+#                                 # Total activity
+#                                 vals = []
+#                                 for i in range(4):
+#                                     vals.extend(
+#                                         (self.raw_data[t][84]["Value"].values[i::4])
+#                                     )
+
+#                             df_tab[idx_col] = vals
+
+#                         elif idx_col[1] == "C/E Error":
+#                             if mat != "H3":
+#                                 errs = self.raw_data[t][4]["Error"].values[: len(x)]
+#                             else:
+#                                 errs = []
+#                                 for i in range(4):
+#                                     yerr = self.raw_data[t][84]["Error"].values[i::4]
+#                                     errs.extend(yerr)
+
+#                             vals1 = np.square(errs)
+#                             vals2 = np.square(
+#                                 exp_data_df.loc[:, "Error"].to_numpy() / 100
+#                             )
+#                             ce_err = np.sqrt(vals1 + vals2)
+#                             ce_err = ce_err.tolist()
+#                             df_tab[idx_col] = ce_err
+#                         # Calculate C/E value
+#                         else:
+#                             if mat != "H3":
+#                                 vals1 = self.raw_data[t][4]["Value"].values[: len(x)]
+#                             else:
+#                                 vals1 = []
+#                                 for i in range(4):
+#                                     vals1.extend(
+#                                         self.raw_data[t][84]["Value"].values[i::4]
+#                                     )
+
+#                             if mat == "H3":
+#                                 vals2 = exp_data_df.loc[:, "Activity"].to_numpy()
+#                             else:
+#                                 vals2 = exp_data_df.loc[:, "Reaction Rate"].to_numpy()
+#                             ratio = vals1 / vals2
+#                             ratio = ratio.tolist()
+#                             df_tab[idx_col] = vals1 / vals2
+
+#                 # Assign worksheet title and put into Excel
+#                 conv_df = self._get_conv_df(mat, len(x))
+#                 sheet = self.testname.replace("-", " ")
+#                 if mat != "H3":
+#                     sheet_name = sheet + ", Foil {}".format(mat)
+#                 else:
+#                     sheet_name = sheet + " H3 activity"
+#                 df_tab.to_excel(writer, sheet_name=sheet_name)
+#                 conv_df.to_excel(writer, sheet_name=sheet_name, startrow=55)
+#                 # Close the Pandas Excel writer object and output the Excel file
+
+#     def _build_atlas(self, tmp_path: str | os.PathLike, atlas: at.Atlas) -> at.Atlas:
+#         """
+#         Fill the atlas with the customized plots. Creation and saving of the
+#         atlas are handled elsewhere.
+
+#         Parameters
+#         ----------
+#         tmp_path : str | os.PathLike
+#             path to the temporary folder containing the plots for the atlas
+#         atlas : at.Atlas
+#             Object representing the plot Atlas.
+
+#         Returns
+#         -------
+#         atlas : at.Atlas
+#             Object representing the plot Atlas.
+#         """
+#         for material in tqdm(self.inputs):
+#             # Tritium Activity
+#             if material == "H3":
+#                 unit = "Bq/g"
+#                 quantity = "Activity"
+#                 for i in range(4):
+#                     data = []
+#                     # y = []
+#                     # err = []
+#                     exp_folder = os.path.join(self.path_exp_res, material)
+#                     exp_filename = self.testname + "_" + material + ".csv"
+#                     exp_filepath = os.path.join(exp_folder, exp_filename)
+#                     exp_data_df = pd.read_csv(exp_filepath)
+
+#                     xlabel = "Pellet no."
+#                     x = list(range(1, 13))
+
+#                     y = exp_data_df["Activity"].values[i * 12 : (i + 1) * 12]
+#                     err = exp_data_df["Error"].values[i * 12 : (i + 1) * 12] / 100
+
+#                     ylabel_exp = "Experiment"
+#                     data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel_exp}
+#                     data.append(data_exp)
+
+#                     for lib in self.lib[1:]:
+#                         # y = []
+#                         # err = []
+#                         # Total tritium production Li6 + Li7
+#                         ycalc = self.raw_data[(material, lib)][84]["Value"].values[i::4]
+
+#                         yerr = np.square(
+#                             self.raw_data[(material, lib)][84]["Error"].values[i::4]
+#                         )
+
+#                         y = ycalc
+#                         err = yerr
+
+#                         ylabel_calc = self.session.conf.get_lib_name(lib)
+#                         data_calc = {"x": x, "y": y, "err": err, "ylabel": ylabel_calc}
+#                         data.append(data_calc)
+
+#                     title = f"ENEA{2*(i+1)} pellet stack"
+#                     outname = "tmp"
+#                     plot = Plotter(
+#                         data,
+#                         title,
+#                         tmp_path,
+#                         outname,
+#                         quantity,
+#                         unit,
+#                         xlabel,
+#                         self.testname,
+#                     )
+#                     img_path = plot.plot("Discrete Experimental points")
+#                     atlas.insert_img(img_path)
+#             # Foils
+#             else:
+#                 unit = "-"
+#                 quantity = ["C/E"]
+#                 data = []
+#                 exp_folder = os.path.join(self.path_exp_res, material)
+#                 exp_filename = self.testname + "_" + material + ".csv"
+#                 exp_filepath = os.path.join(exp_folder, exp_filename)
+#                 exp_data_df = pd.read_csv(exp_filepath)
+
+#                 # Get experimental data and errors for the selected benchmark case
+#                 xlabel = "Shielding thickness [cm]"
+#                 x = list(exp_data_df["Depth"].values)
+#                 y = []
+#                 err = []
+#                 y.append(exp_data_df["Reaction Rate"].values)
+#                 err.append(exp_data_df["Error"].values / 100)
+#                 # Append experimental data to data list (sent to plotter)
+#                 ylabel = "Experiment"
+#                 data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
+#                 data.append(data_exp)
+
+#                 title = self.testname + " experiment, Foil: " + material
+
+#                 # Loop over selected libraries
+#                 for lib in self.lib[1:]:
+#                     # Get library name, assign title to the plot
+#                     ylabel = self.session.conf.get_lib_name(lib)
+#                     y = []
+#                     err = []
+
+#                     ycalc = self.raw_data[(material, lib)][4]["Value"].values[: len(x)]
+#                     y.append(ycalc)
+
+#                     yerr = self.raw_data[(material, lib)][4]["Error"].values[: len(x)]
+#                     err.append(yerr)
+
+#                     # Append computational data to data list(to be sent to plotter)
+#                     data_comp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
+#                     data.append(data_comp)
+
+#                 outname = "tmp"
+#                 plot = Plotter(
+#                     data,
+#                     title,
+#                     tmp_path,
+#                     outname,
+#                     quantity,
+#                     unit,
+#                     xlabel,
+#                     self.testname,
+#                 )
+#                 img_path = plot.plot("Waves")
+#                 atlas.insert_img(img_path)
+#         return atlas
+
+#     def _get_conv_df(self, mat: str, size: int) -> pd.DataFrame:
+#         """
+#         Method to calculate average and maximum uncertainties
+
+#         Parameters
+#         ----------
+#         mat : str
+#             String denoting material
+#         size : int
+#             Integer denoting size of array
+
+#         Returns
+#         -------
+#         conv_df : pd.DataFrame
+#             Dataframe containing Max Error and Average Error columns
+#         """
+#         conv_df = pd.DataFrame()
+#         for lib in self.lib[1:]:
+#             if mat != "H3":
+#                 max = self.raw_data[(mat, lib)][4]["Error"].values[:size].max()
+#                 avg = self.raw_data[(mat, lib)][4]["Error"].values[:size].mean()
+#             else:
+#                 max = self.raw_data[(mat, lib)][84]["Error"].values[:size].max()
+#                 avg = self.raw_data[(mat, lib)][84]["Error"].values[:size].mean()
+#             library = self.session.conf.get_lib_name(lib)
+#             conv_df.loc["Max Error", library] = max
+#             conv_df.loc["Average Error", library] = avg
+#         return conv_df

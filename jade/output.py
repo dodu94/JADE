@@ -49,7 +49,7 @@ import jade.excelsupport as exsupp
 import jade.plotter as plotter
 from jade.__openmc__ import OMC_AVAIL
 from jade.__version__ import __version__
-from jade.configuration import ComputationalConfig
+from jade.configuration import BenchmarkConfiguration
 from jade.constants import CODES
 
 if OMC_AVAIL:
@@ -98,7 +98,7 @@ class AbstractBenchmarkOutput(abc.ABC):
         try:
             cnf_path = os.path.join(session.path_cnf, self.testname + ".yaml")
             self.cnf_path = cnf_path
-            self.cfg = ComputationalConfig.from_yaml(cnf_path)
+            self.cfg = BenchmarkConfiguration.from_yaml(cnf_path)
         except FileNotFoundError:
             # legacy excel(s)
             self.cfg = False

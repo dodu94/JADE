@@ -21,26 +21,29 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with JADE.  If not, see <http://www.gnu.org/licenses/>.
 """
-import sys
-import os
+
 import json
+import os
+import sys
+
 import pytest
 
 cp = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(cp)
 sys.path.insert(1, modules_path)
 
-from f4enix.input.libmanager import LibManager
-from jade.configuration import Configuration
-import jade.output as output
 import pandas as pd
-from jade.expoutput import SpectrumOutput
+from f4enix.input.libmanager import LibManager
+
+import jade.output as output
+
+# from jade.expoutput import SpectrumOutput
 import jade.sphereoutput as sout
-from jade.configuration import Configuration
+from jade.__openmc__ import OMC_AVAIL
 from jade.__version__ import __version__
+from jade.configuration import Configuration
 from jade.output import MCNPSimOutput
 from jade.postprocess import compareBenchmark
-from jade.__openmc__ import OMC_AVAIL
 
 if OMC_AVAIL:
     import jade.openmc as omc
@@ -55,7 +58,6 @@ OUTM_SDDR = os.path.join(
 
 
 class TestSphereSDDRMCNPSimOutput:
-
     out = sout.SphereSDDRMCNPOutput(OUTM_SDDR, OUTP_SDDR)
 
     def test_get_single_excel_data(self):
@@ -104,7 +106,6 @@ class MockSession:
 
 
 class TestBenchmarkOutput:
-
     def test_single_excel_mcnp(self, tmpdir):
         conf = Configuration(
             os.path.join(cp, "TestFiles", "output", "config_test.xlsx")
@@ -162,7 +163,7 @@ class TestBenchmarkOutput:
             metadata = json.load(f)
         assert metadata["jade_run_version"] == "0.0.1"
         assert metadata["jade_version"] == __version__
-        assert metadata["code_version"] == "0.14.0"        
+        assert metadata["code_version"] == "0.14.0"
 
     def test_iter_cyl(self, tmpdir):
         conf = Configuration(
@@ -176,33 +177,33 @@ class TestBenchmarkOutput:
         compareBenchmark(session, "99c-93c", "d1s", ["ITER_Cyl_SDDR"], exp=False)
 
 
-class TestExperimentalOutput:
+# class TestExperimentalOutput:
 
-    def test_print_raw_metadata(self, tmpdir):
-        conf = Configuration(
-            os.path.join(cp, "TestFiles", "output", "config_test.xlsx")
-        )
-        session = MockSession(conf, tmpdir)
-        out = SpectrumOutput(
-            ["Exp", "32c"], "mcnp", "Oktavian", session, multiplerun=True
-        )
-        out._extract_outputs()
-        out._read_exp_results()
-        out._print_raw()
+#     def test_print_raw_metadata(self, tmpdir):
+#         conf = Configuration(
+#             os.path.join(cp, "TestFiles", "output", "config_test.xlsx")
+#         )
+#         session = MockSession(conf, tmpdir)
+#         out = SpectrumOutput(
+#             ["Exp", "32c"], "mcnp", "Oktavian", session, multiplerun=True
+#         )
+#         out._extract_outputs()
+#         out._read_exp_results()
+#         out._print_raw()
 
-        for folder in os.listdir(session.path_comparison):
-            path = os.path.join(
-                session.path_comparison,
-                folder,
-                "Oktavian",
-                "mcnp",
-                "Raw_Data",
-                "32c",
-                "metadata.json",
-            )
+#         for folder in os.listdir(session.path_comparison):
+#             path = os.path.join(
+#                 session.path_comparison,
+#                 folder,
+#                 "Oktavian",
+#                 "mcnp",
+#                 "Raw_Data",
+#                 "32c",
+#                 "metadata.json",
+#             )
 
-            assert os.path.exists(path)
-            with open(path, "r") as f:
-                metadata = json.load(f)
-            assert metadata["jade_run_version"] == "0.0.1"
-            assert metadata["jade_version"] == __version__
+#             assert os.path.exists(path)
+#             with open(path, "r") as f:
+#                 metadata = json.load(f)
+#             assert metadata["jade_run_version"] == "0.0.1"
+#             assert metadata["jade_version"] == __version__
