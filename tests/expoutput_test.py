@@ -365,4 +365,8 @@ class TestMCNPExpBenchmarkOutput:
 
     def test_pp_excel_comparison(self):
         # TODO verify that the CE tables are correctly dumped
+        # benchoutput = expoutput.MCNPExpBenchmarkOutput(
+        #     "32c", "mcnp", "Okatavian", session_mock, multiplerun=True
+        # )
+        # benchoutput.single_postprocess()
         pass
