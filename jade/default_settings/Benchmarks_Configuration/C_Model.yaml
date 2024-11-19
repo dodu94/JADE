@@ -1,0 +1,413 @@
+Atlas:
+  11:
+    identifier: 11
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  12:
+    identifier: 12
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  16:
+    identifier: 16
+    plot_type: Grouped bars
+    quantity: Nuclear Heating
+    unit: W
+  21:
+    identifier: 21
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  22:
+    identifier: 22
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  26:
+    identifier: 26
+    plot_type: Grouped bars
+    quantity: Nuclear Heating
+    unit: W
+  31:
+    identifier: 31
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  32:
+    identifier: 32
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  36:
+    plot_type: Grouped bars
+    identifier: 36
+    quantity: Nuclear Heating
+    unit: W
+  41:
+    identifier: 41
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  42:
+    identifier: 42
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  46:
+    plot_type: Grouped bars
+    identifier: 46
+    quantity: Nuclear Heating
+    unit: W
+  51:
+    identifier: 51
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  52:
+    identifier: 52
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  56:
+    identifier: 56
+    plot_type: Grouped bars
+    quantity: Nuclear Heating
+    unit: W
+  61:
+    identifier: 61
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  62:
+    identifier: 62
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  66:
+    identifier: 66
+    plot_type: Grouped bars
+    quantity: Nuclear Heating
+    unit: W
+  71:
+    identifier: 71
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  72:
+    identifier: 72
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  76:
+    identifier: 76
+    plot_type: Grouped bars
+    quantity: Nuclear Heating
+    unit: W
+  81:
+    identifier: 81
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  82:
+    identifier: 82
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  86:
+    identifier: 86
+    plot_type: Grouped bars
+    quantity: Nuclear Heating
+    unit: W
+  91:
+    identifier: 91
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  92:
+    identifier: 92
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  96:
+    identifier: 96
+    plot_type: Grouped bars
+    quantity: Nuclear Heating
+    unit: W
+  101:
+    identifier: 101
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  102:
+    identifier: 102
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  111:
+    identifier: 111
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  112:
+    identifier: 112
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  121:
+    identifier: 121
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  122:
+    identifier: 122
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+  131:
+    identifier: 131
+    plot_type: Grouped bars
+    quantity: 'Neutron current '
+    unit: '#/cm^2/s'
+  132:
+    identifier: 132
+    plot_type: Grouped bars
+    quantity: Neutron flux
+    unit: '#/cm^2/s'
+Excel:
+  11:
+    cut_y: 20.0
+    identifier: 11
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  12:
+    cut_y: 20.0
+    identifier: 12
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  16:
+    identifier: 16
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  21:
+    cut_y: 20.0
+    identifier: 21
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  22:
+    cut_y: 20.0
+    identifier: 22
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  26:
+    identifier: 26
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  31:
+    cut_y: 20.0
+    identifier: 31
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  32:
+    cut_y: 20.0
+    identifier: 32
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  36:
+    identifier: 36
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  41:
+    cut_y: 20.0
+    identifier: 41
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  42:
+    cut_y: 20.0
+    identifier: 42
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  46:
+    identifier: 46
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  51:
+    cut_y: 20.0
+    identifier: 51
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  52:
+    cut_y: 20.0
+    identifier: 52
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  56:
+    identifier: 56
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  61:
+    cut_y: 20.0
+    identifier: 61
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  62:
+    cut_y: 20.0
+    identifier: 62
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  66:
+    identifier: 66
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  71:
+    cut_y: 20.0
+    identifier: 71
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  72:
+    cut_y: 20.0
+    identifier: 72
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  76:
+    identifier: 76
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  81:
+    cut_y: 20.0
+    identifier: 81
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  82:
+    cut_y: 20.0
+    identifier: 82
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  86:
+    identifier: 86
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  91:
+    cut_y: 20.0
+    identifier: 91
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  92:
+    cut_y: 20.0
+    identifier: 92
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  96:
+    identifier: 96
+    x: Cells
+    x_name: 'Cell #'
+    y: tally
+    y_name: Value
+  101:
+    cut_y: 20.0
+    identifier: 101
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  102:
+    cut_y: 20.0
+    identifier: 102
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  111:
+    cut_y: 20.0
+    identifier: 111
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  112:
+    cut_y: 20.0
+    identifier: 112
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  121:
+    cut_y: 20.0
+    identifier: 121
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  122:
+    cut_y: 20.0
+    identifier: 122
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  131:
+    cut_y: 20.0
+    identifier: 131
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision
+  132:
+    cut_y: 20.0
+    identifier: 132
+    x: Segments
+    x_name: 'Segment #'
+    y: User
+    y_name: Collision

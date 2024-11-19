@@ -39,6 +39,12 @@ the installation:
   | ``pip install --upgrade pip``
   | ``pip install .``
 
+If the user wishes to use the OpenMC features within JADE, they should alternatively install JADE with OpenMC as follows:
+
+  | ``pip install .[openmc]``
+
+Note that currently version 0.14.0 of OpenMC is supported. The user will need to have git installed on their system. 
+
 .. _installdevelop:
 
 Development Installation
@@ -55,6 +61,10 @@ JADE has now been installed as a command line tool and should now be initialised
 
   | ``cd ../``
   | ``jade``
+
+If permissions errors are encountered, the user may instead run:
+
+  | ``python -m jade``
 
 The folder strucure should now look like the following:
 ::

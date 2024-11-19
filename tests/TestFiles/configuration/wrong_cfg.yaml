@@ -1,0 +1,7 @@
+Atlas:
+  4:
+    identifier: 4
+    plot_type: Ratio graph
+    quantity: Neutron Flux
+    unit: '#/cm^2'
+    dummy: 2

@@ -73,6 +73,8 @@ Computational Benchmarks
 
 .. include:: benchdesc/itercylSDDR.rst
 
+.. include:: benchdesc/simptokamak.rst
+
 Experimental Benchmarks
 =======================
 

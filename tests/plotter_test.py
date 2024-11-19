@@ -20,18 +20,20 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with JADE.  If not, see <http://www.gnu.org/licenses/>.
 """
-import sys
+
 import os
-import numpy as np
 import shutil
+import sys
+
+import numpy as np
 import pytest
 
 cp = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(cp)
 sys.path.insert(1, modules_path)
 
-from jade.plotter import Plotter
 import jade.plotter as plotter
+from jade.plotter import Plotter, PlotType
 
 OUTPATH = os.path.join(cp, "tmp")
 outname = "dummy"
@@ -74,7 +76,7 @@ AVAILABLE_PLOTS = [
     "Binned graph",
     "Ratio graph",
     "Experimental points",
-    "Discreet Experimental points",
+    "Discrete Experimental points",
     "Grouped bars",
 ]
 
@@ -109,7 +111,7 @@ class TestPlotter:
         except ValueError:
             assert True
 
-        args = [plot_type]
+        args = [PlotType(plot_type)]
         keyargs = {}
         self._plot(plotterob, args, keyargs)
 
@@ -133,7 +135,7 @@ class TestPlotter:
 
         plotterob = Plotter(**keyargs)
 
-        args = ["Waves"]
+        args = [PlotType("Waves")]
         keyargs = {}
         self._plot(plotterob, args, keyargs)
 

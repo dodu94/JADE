@@ -1,0 +1,98 @@
+Atlas:
+  14:
+    identifier: 14
+    plot_type: Binned graph
+    quantity: Gamma Flux
+    unit: '#/cm^2/s'
+  34:
+    identifier: 34
+    plot_type: Binned graph
+    quantity: Gamma Flux
+    unit: '#/cm^2/s'
+  44:
+    identifier: 44
+    plot_type: Binned graph
+    quantity: Gamma Flux
+    unit: '#/cm^2/s'
+  54:
+    identifier: 54
+    plot_type: Binned graph
+    quantity: Gamma Flux
+    unit: '#/cm^2/s'
+  74:
+    identifier: 74
+    plot_type: Grouped bars
+    quantity: Gamma Flux
+    unit: '#/cm^2/s'
+  124:
+    identifier: 124
+    plot_type: Grouped bars
+    quantity: Dose Rate
+    unit: Sv/h
+  202:
+    identifier: 202
+    plot_type: Binned graph
+    quantity: Neutron Flux
+    unit: '#/cm^2/s'
+  242:
+    identifier: 242
+    plot_type: Grouped bars
+    quantity: Neutron Flux
+    unit: '#/cm^2/s'
+Excel:
+  14:
+    cut_y: 20
+    identifier: 14
+    x: Energy
+    x_name: Energy [MeV]
+    y: Time
+    y_name: Cooldown time
+  34:
+    cut_y: 20
+    identifier: 34
+    x: Energy
+    x_name: Energy [MeV]
+    y: Time
+    y_name: Cooldown time
+  44:
+    cut_y: 20
+    identifier: 44
+    x: Energy
+    x_name: Energy [MeV]
+    y: Time
+    y_name: Cooldown time
+  54:
+    cut_y: 20
+    identifier: 54
+    x: Energy
+    x_name: Energy [MeV]
+    y: Time
+    y_name: Cooldown time
+  74:
+    cut_y: 20
+    identifier: 74
+    x: Cells
+    x_name: Cell n.
+    y: Time
+    y_name: Cooldown time
+  124:
+    cut_y: 20
+    identifier: 124
+    x: Cells
+    x_name: Cell n.
+    y: Time
+    y_name: Cooldown time
+  202:
+    cut_y: 20
+    identifier: 202
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells-Segments
+    y_name: Geometrical bin
+  242:
+    cut_y: 20
+    identifier: 242
+    x: Cells-Segments
+    x_name: Geometrical bin
+    y: tally
+    y_name: Total Neutron Flux [#/cm^2/s]

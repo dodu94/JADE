@@ -22,8 +22,10 @@ along with JADE.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import sys
+
 import pytest
-from jade.configuration import Configuration
+
+from jade.configuration import ComputationalConfig, Configuration
 
 cp = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(cp)
@@ -40,7 +42,6 @@ def config():
 
 
 class TestConfiguration:
-
     def test_read(self, config):
         # TODO
         # Check that everything is read in a correct way
@@ -51,3 +52,37 @@ class TestConfiguration:
         expected_list = ["FENDL 2.1c", "33c", "pincopalle"]
         for suffix, expected in zip(suffix_list, expected_list):
             assert config.get_lib_name(suffix) == expected
+
+
+class TestComputationalConfig:
+    def test_conformity_defaults(self):
+        """test all yaml configuration files found in the default settings"""
+        root = os.path.join(
+            modules_path, "jade", "default_settings", "Benchmarks_Configuration"
+        )
+        for file in os.listdir(root):
+            if file.endswith(".yaml"):
+                cfg = ComputationalConfig.from_yaml(os.path.join(root, file))
+                assert cfg
+
+    def test_allowables(self):
+        cfg = ComputationalConfig.from_yaml(os.path.join(resources, "ITER_1D.yaml"))
+        # ensure that ints are correctly converted
+        assert cfg.excel_options[44]
+        # additional keyword not supported by the data class
+        with pytest.raises(TypeError):
+            cfg = ComputationalConfig.from_yaml(
+                os.path.join(resources, "wrong_cfg.yaml")
+            )
+
+        # unsupported plot type
+        with pytest.raises(ValueError):
+            cfg = ComputationalConfig.from_yaml(
+                os.path.join(resources, "wrong_cfg2.yaml")
+            )
+
+        # unsupported Tally bin type
+        with pytest.raises(ValueError):
+            cfg = ComputationalConfig.from_yaml(
+                os.path.join(resources, "wrong_cfg3.yaml")
+            )

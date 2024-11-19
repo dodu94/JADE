@@ -3,8 +3,6 @@
 *.pyc
 Untitled.ipynb
 .coverage
-Configuration/
-Experimental_Results/
 */test.ipynb
 
 # These are generated folders for cache

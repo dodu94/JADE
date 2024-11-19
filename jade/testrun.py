@@ -45,6 +45,10 @@ from jade.configuration import Configuration
 from f4enix.input.libmanager import LibManager
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
 from jade.__version__ import __version__
+from jade.__openmc__ import OMC_AVAIL
+
+if OMC_AVAIL:
+    import jade.openmc as omc
 
 
 # colors
@@ -176,7 +180,7 @@ class Test:
             self.serpent_inp = inputfile.SerpentInputFile.from_text(serpent_ipt)
         if self.openmc:
             openmc_ipt = os.path.join(inp, "openmc")
-            self.openmc_inp = inputfile.OpenMCInputFiles.from_path(openmc_ipt)
+            self.openmc_inp = omc.OpenMCInputFiles(openmc_ipt)
 
     @staticmethod
     def _get_lib(lib: str | dict) -> str:
@@ -1097,7 +1101,9 @@ class SphereTest(Test):
 
             # Generate the new input
             newinp = deepcopy(self.openmc_inp)
-            newinp.materials = materials  # Assign material
+
+            # Assign material
+            newinp.matlist_to_openmc(materials, libmanager)
 
             # assign stop card
             newinp.add_stopCard(nps)
@@ -1108,7 +1114,7 @@ class SphereTest(Test):
             )
             outpath = os.path.join(motherdir, outdir, "openmc")
             os.makedirs(outpath, exist_ok=True)
-            newinp.write(outpath, libmanager)
+            newinp.write(outpath)
 
         self._print_metadata(os.path.join(motherdir, outdir))
 
@@ -1279,7 +1285,10 @@ class SphereTest(Test):
 
             # Generate the new input
             newinp = deepcopy(self.openmc_inp)
-            newinp.materials = materials  # Assign material
+
+            # Assign material
+            newinp.matlist_to_openmc(materials, libmanager)
+
             # add stop card
             newinp.add_stopCard(self.nps)
 
@@ -1289,7 +1298,7 @@ class SphereTest(Test):
 
             outpath = os.path.join(motherdir, outdir, "openmc")
             os.makedirs(outpath, exist_ok=True)
-            newinp.write(outpath, libmanager)
+            newinp.write(outpath)
 
         self._print_metadata(os.path.join(motherdir, outdir))
 

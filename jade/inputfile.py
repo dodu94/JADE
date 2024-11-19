@@ -176,6 +176,7 @@ class SerpentInputFile:
             outfile.write(to_print)
 
 
+'''
 class OpenMCInputFiles:
     def __init__(
         self, geometry, settings, tallies, openmc_materials, materials, name=None
@@ -343,6 +344,7 @@ class OpenMCInputFiles:
         with open(tallies_file, "w") as outfile:
             outfile.write(tallies)
 
-        openmc_materials_file = os.path.join(path, "materials.xml")
-        with open(openmc_materials_file, "w") as outfile:
-            outfile.write(openmc_materials)
+        materials_file = os.path.join(path, "materials.xml")
+        with open(materials_file, "w") as outfile:
+            outfile.write(materials)
+'''

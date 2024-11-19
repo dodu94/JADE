@@ -1,0 +1,93 @@
+Atlas:
+  204:
+    identifier: 204
+    plot_type: Ratio graph
+    quantity: Neutron Heating
+    unit: MeV/cc/n_s
+  214:
+    identifier: 214
+    plot_type: Ratio graph
+    quantity: Photon Heating
+    unit: MeV/cc/n_s
+  224:
+    identifier: 224
+    plot_type: Ratio graph
+    quantity: Tritium Production
+    unit: atom/cc/n_s
+  234:
+    identifier: 234
+    plot_type: Ratio graph
+    quantity: Neutron Flux
+    unit: '#/cc/n_s'
+  244:
+    identifier: 244
+    plot_type: Ratio graph
+    quantity: Photon Flux
+    unit: '#/cc/n_s'
+Excel:
+  54:
+    identifier: 54
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  94:
+    identifier: 94
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  134:
+    identifier: 134
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  164:
+    identifier: 164
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  184:
+    identifier: 184
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  194:
+    identifier: 194
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  204:
+    identifier: 204
+    x: Cor A
+    x_name: R [cm]
+    y: tally
+    y_name: Value
+  214:
+    identifier: 214
+    x: Cor A
+    x_name: R [cm]
+    y: tally
+    y_name: Value
+  224:
+    identifier: 224
+    x: Cor A
+    x_name: R [cm]
+    y: tally
+    y_name: Value
+  234:
+    identifier: 234
+    x: Cor A
+    x_name: R [cm]
+    y: tally
+    y_name: Value
+  244:
+    identifier: 244
+    x: Cor A
+    x_name: R [cm]
+    y: tally
+    y_name: Value

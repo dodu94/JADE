@@ -45,11 +45,19 @@ jobs:
           make
           sudo make install
 
-      # Install dependencies
-      - name: Install dependencies
+      # Install dependencies linux
+      - name: Install dependencies Linux
+        if: runner.os == 'Linux'
+        run: |
+          pip install -e .[openmc]
+          pip install pytest pytest-cov
+        
+      # Install dependencies windows
+      - name: Install dependencies Windows 
+        if: runner.os == 'Windows'
         run: |
           pip install -e .
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov      
 
       # Activate environment and run pytest
       - name: Testing - Linux

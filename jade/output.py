@@ -24,30 +24,36 @@
 from __future__ import annotations
 
 import abc
+import json
+import logging
 import os
 import pickle
 import shutil
 import string
 import sys
-import json
-import logging
+from enum import Enum
 from typing import TYPE_CHECKING
-from f4enix.output.mctal import Mctal, Tally
-from f4enix.output.meshtal import Meshtal, Fmesh1D
-from f4enix.output.MCNPoutput import Output
+
 import numpy as np
 
 # import xlwings as xw
 import pandas as pd
+from f4enix.output.MCNPoutput import Output
+from f4enix.output.MCNPoutput import Output as MCNPOutputFile
+from f4enix.output.mctal import Mctal, Tally
+from f4enix.output.meshtal import Fmesh1D, Meshtal
 from tqdm import tqdm
 
 import jade.atlas as at
 import jade.excelsupport as exsupp
 import jade.plotter as plotter
+from jade.__openmc__ import OMC_AVAIL
+from jade.__version__ import __version__
+from jade.configuration import ComputationalConfig
 from jade.constants import CODES
 
-from jade.__version__ import __version__
-from f4enix.output.MCNPoutput import Output as MCNPOutputFile
+if OMC_AVAIL:
+    import jade.openmc as omc
 
 if TYPE_CHECKING:
     from jade.main import Session
@@ -57,70 +63,8 @@ CRED = "\033[91m"
 CEND = "\033[0m"
 
 
-class AbstractOutput(abc.ABC):
-    @abc.abstractmethod
-    def single_postprocess(self):
-        """
-        To be executed when a single pp is requested
-        """
-        pass
-
-    @abc.abstractmethod
-    def compare(self):
-        """
-        To be executed when a comparison is requested
-        """
-
-    @staticmethod
-    def _get_output_files(results_path):
-        """
-        Recover the meshtal and outp file from a directory
-
-        Parameters
-        ----------
-        results_path : str or path
-            path where the MCNP results are contained.
-
-        Raises
-        ------
-        FileNotFoundError
-            if either meshtal or outp are not found.
-
-        Returns
-        -------
-        mfile : path
-            path to the meshtal file
-        ofile : path
-            path to the outp file
-
-        """
-        # Get mfile
-        mfile = None
-        ofile = None
-
-        for file in os.listdir(results_path):
-            if file[-1] == "m":
-                mfile = file
-            elif file[-1] == "o":
-                ofile = file
-
-        if mfile is None or ofile is None:
-            raise FileNotFoundError(
-                """
- The followig path does not contain either the .m or .o file:
- {}""".format(
-                    results_path
-                )
-            )
-
-        mfile = os.path.join(results_path, mfile)
-        ofile = os.path.join(results_path, ofile)
-
-        return mfile, ofile
-
-
-class BenchmarkOutput(AbstractOutput):
-    def __init__(self, lib: str, code: str, testname: str, session: Session):
+class AbstractBenchmarkOutput(abc.ABC):
+    def __init__(self, lib: str, code: str, testname: str, session: Session) -> None:
         """
         General class for a Benchmark output
 
@@ -149,24 +93,31 @@ class BenchmarkOutput(AbstractOutput):
         self.path_templates = session.path_templates
 
         # Read specific configuration
-        cnf_path = os.path.join(session.path_cnf, self.testname + ".xlsx")
-        if os.path.isfile(cnf_path):
+        # TODO for the moment allow both legacy xlsx and yaml. In the future,
+        # everything should be moved to yaml
+        try:
+            cnf_path = os.path.join(session.path_cnf, self.testname + ".yaml")
             self.cnf_path = cnf_path
-        # It can be assumed that there is a folder containing multiple files
-        else:
-            self.cnf_path = os.path.join(session.path_cnf, self.testname)
+            self.cfg = ComputationalConfig.from_yaml(cnf_path)
+        except FileNotFoundError:
+            # legacy excel(s)
+            self.cfg = False
+            cnf_path = os.path.join(session.path_cnf, self.testname + ".xlsx")
+            if os.path.isfile(cnf_path):
+                self.cnf_path = cnf_path
+            # It can be assumed that there is a folder containing multiple files
+            else:
+                self.cnf_path = os.path.join(session.path_cnf, self.testname)
 
         # Updated to handle multiple codes
         # initialize them so that intellisense knows they are available
         self.mcnp = False
-        self.d1s = False
+        self.openmc = False
         self.serpent = False
         self.d1s = False
         for available_code in CODES.values():
             if code == available_code:
                 setattr(self, available_code, True)
-                self.raw_data[code] = {}
-                self.outputs[code] = {}
             else:
                 setattr(self, available_code, False)
 
@@ -244,65 +195,91 @@ class BenchmarkOutput(AbstractOutput):
             results_path = os.path.join(self.test_path, code)
             self.metadata = self._read_metadata_run(results_path)
 
-    def _read_metadata_run(self, pathtofile: os.PathLike) -> dict:
-        # Get the metadata
+    @abc.abstractmethod
+    def _read_code_version(self, simulation_folder: str | os.PathLike) -> str | None:
+        """
+        Abstract function to retrieve code version. Implimentation should be added to child classes for each code.
 
-        # try to read the metadata
+        Parameters
+        ----------
+        simulation_folder : str | os.PathLike
+            Path to simulation results folder.
+
+        Returns
+        -------
+        str | None
+            Returns the code version, except for sphere benchmark, which returns None
+        """
+
+    @abc.abstractmethod
+    def _get_output_files(self, results_path: str | os.PathLike) -> list:
+        """
+        Abstract function to retrieve code output files. Implimentation should be added to child classes for each code.
+
+        Parameters
+        ----------
+        results_path : str | os.PathLike
+            Path to simulation results folder.
+
+        Returns
+        -------
+        list
+            List of simulation results files.
+        """
+
+    @abc.abstractmethod
+    def parse_output_data(
+        self, results_path: str | os.PathLike
+    ) -> tuple[AbstractSimOutput, list, list]:
+        """
+        Abstract function for retrieving simulation output data, tally numbers and tally comments.
+
+        Parameters
+        ----------
+        results_path : str | os.PathLike
+            Path to simulation results
+
+        Returns
+        -------
+        sim_output : AbstractSimOutput
+            Simulation output object, specific to the code being proccessed. This should inherit from AbstractSimOutput.
+        tally_numbers : list
+            List containing all tally numbers in the simulation.
+        tally_comments: list
+            List containing all tally comments in the simulation.
+        """
+
+    def _read_metadata_run(self, simulation_folder: os.PathLike) -> dict:
+        """
+        Retrieve the metadata from the run
+
+        Parameters
+        ----------
+        pathtofile : os.PathLike
+            path to metadata file
+
+        Returns
+        -------
+        dict
+            metadata dictionary
+        """
         try:
             with open(
-                os.path.join(pathtofile, "metadata.json"),
+                os.path.join(simulation_folder, "metadata.json"),
                 "r",
                 encoding="utf-8",
             ) as file:
                 metadata = json.load(file)
         except FileNotFoundError:
-            logging.warning("No metadata file found at %s", pathtofile)
+            logging.warning("No metadata file found at %s", simulation_folder)
             metadata = {}
 
         metadata["jade_version"] = __version__
-        metadata["code_version"] = self._read_code_version(pathtofile)
+        metadata["code_version"] = self._read_code_version(simulation_folder)
 
         return metadata
 
-    def _read_code_version(self, pathtofile: os.PathLike) -> str | None:
-        """Read the code version from the output files or in other ways depending
-        on the used code.
-
-        Parameters
-        ----------
-        pathtofile : os.PathLike
-            path to the folder where results are stored
-
-        Returns
-        -------
-        str | None
-            version of the code used to run the benchmarks
-        """
-        if self.mcnp or self.d1s:
-            return self._read_mcnp_code_version(pathtofile)
-
-        return None
-
-    def _read_mcnp_code_version(self, pathtofile: os.PathLike) -> str | None:
-        if self.testname in ["Sphere", "SphereSDDR"]:
-            if not os.path.exists(pathtofile):
-                # this can happen the first time
-                return None
-
-        _, ofile = self._get_output_files(pathtofile)
-        outp = MCNPOutputFile(ofile)
-        try:
-            version = outp.get_code_version()
-            return version
-        except ValueError:
-            logging.warning(
-                "Code version not found in the output file or aux file for %s",
-                pathtofile,
-            )
-            logging.warning("Contents of the directory: %s", os.listdir(pathtofile))
-            return None
-
-    def single_postprocess(self):
+    def single_postprocess(self) -> None:
         """
         Execute the full post-processing of a single library (i.e. excel,
         raw data and atlas)
@@ -321,8 +298,16 @@ class BenchmarkOutput(AbstractOutput):
         os.mkdir(outpath)
 
         # Get atlas configuration
-        atl_cnf = pd.read_excel(self.cnf_path, sheet_name="Atlas")
-        atl_cnf.set_index("Tally", inplace=True)
+        if not self.cfg:
+            raise FileNotFoundError("No yaml configuration file found")
+
+        atl_cnf = self.cfg.atlas_options
+        # recover the different possible plot types
+        plot_types = []
+        for _, options in atl_cnf.items():
+            plot_type = options.plot_type
+            if plot_type not in plot_types:
+                plot_types.append(plot_type)
 
         # Printing Atlas
         template = template = os.path.join(self.path_templates, "AtlasTemplate.docx")
@@ -330,14 +315,15 @@ class BenchmarkOutput(AbstractOutput):
 
         # Iterate over each type of plot (first one is quantity
         # and second one the measure unit)
-        for plot_type in list(atl_cnf.columns)[2:]:
-            print(" Plotting : " + plot_type)
-            atlas.doc.add_heading("Plot type: " + plot_type, level=1)
-            # Keep only tallies to plot
-            atl_cnf_plot = atl_cnf[atl_cnf[plot_type]]
-            for tally_num in tqdm(atl_cnf_plot.index, desc="Tallies"):
+        for plot_type in plot_types:
+            print(" Plotting : " + plot_type.value)
+            atlas.doc.add_heading("Plot type: " + plot_type.value, level=1)
+            for tally_num, options in tqdm(atl_cnf.items(), desc="Tallies"):
+                # Check if the tally needs to be potted
+                if options.plot_type != plot_type:
+                    continue
                 try:
-                    output = self.outputs[self.code][tally_num]
+                    output = self.outputs[tally_num]
                 except KeyError:
                     fatal_exception(
                         "tally n. "
@@ -346,8 +332,8 @@ class BenchmarkOutput(AbstractOutput):
                     )
                 vals_df = output["Value"]
                 err_df = output["Error"]
-                quantity = str(atl_cnf_plot["Quantity"].loc[tally_num])
-                unit = str(atl_cnf_plot["Unit"].loc[tally_num])
+                quantity = options.quantity
+                unit = options.unit
                 xlabel = output["x_label"]
                 title = output["title"]
 
@@ -418,7 +404,7 @@ class BenchmarkOutput(AbstractOutput):
         # Remove tmp images
         shutil.rmtree(outpath)
 
-    def compare(self):
+    def compare(self) -> None:
         """
         Generates the full comparison post-processing (excel and atlas)
 
@@ -435,8 +421,17 @@ class BenchmarkOutput(AbstractOutput):
         os.mkdir(outpath)
 
         # Get atlas configuration
-        atl_cnf = pd.read_excel(self.cnf_path, sheet_name="Atlas")
-        atl_cnf.set_index("Tally", inplace=True)
+        # Get atlas configuration
+        if not self.cfg:
+            raise FileNotFoundError("No yaml configuration file found")
+
+        atl_cnf = self.cfg.atlas_options
+        # recover the different possible plot types
+        plot_types = []
+        for _, options in atl_cnf.items():
+            plot_type = options.plot_type
+            if plot_type not in plot_types:
+                plot_types.append(plot_type)
 
         # Printing Atlas
         template = os.path.join(self.path_templates, "AtlasTemplate.docx")
@@ -461,12 +456,14 @@ class BenchmarkOutput(AbstractOutput):
 
         # Iterate over each type of plot (first one is quantity
         # and second one the measure unit)
-        for plot_type in list(atl_cnf.columns)[2:]:
-            print(" Plotting : " + plot_type)
-            atlas.doc.add_heading("Plot type: " + plot_type, level=1)
+        for plot_type in plot_types:
+            print(" Plotting : " + plot_type.value)
+            atlas.doc.add_heading("Plot type: " + plot_type.value, level=1)
             # Keep only tallies to plot
-            atl_cnf_plot = atl_cnf[atl_cnf[plot_type]]
-            for tally_num in tqdm(atl_cnf_plot.index, desc="Tallies"):
+            for tally_num, options in tqdm(atl_cnf.items(), desc="Tallies"):
+                # Check if the tally needs to be potted
+                if options.plot_type != plot_type:
+                    continue
                 # The last 'outputs' can be easily used for common data
                 try:
                     output = outputs_dic[lib][tally_num]
@@ -478,8 +475,8 @@ class BenchmarkOutput(AbstractOutput):
                     )
                 vals_df = output["Value"]
                 err_df = output["Error"]
-                quantity = str(atl_cnf_plot["Quantity"].loc[tally_num])
-                unit = str(atl_cnf_plot["Unit"].loc[tally_num])
+                quantity = options.quantity
+                unit = options.unit
                 xlabel = output["x_label"]
                 title = output["title"]
 
@@ -554,7 +551,21 @@ class BenchmarkOutput(AbstractOutput):
         shutil.rmtree(outpath)
 
     @staticmethod
-    def _reorder_df(df, x_set):
+    def _reorder_df(df: pd.DataFrame, x_set: list) -> pd.DataFrame:
+        """Method to re-organise pandas data frame.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input pandas data frame.
+        x_set : list
+            List of values to re-order data frame on.
+
+        Returns
+        -------
+        pd.DataFrame
+            Re-ordered pandas data frame.
+        """
         # First of all try order by number
         df["index"] = pd.to_numeric(df[x_set], errors="coerce")
 
@@ -578,55 +589,259 @@ class BenchmarkOutput(AbstractOutput):
 
         return df
 
-    def _generate_single_excel_output(self):
-        # Get excel configuration
+    def _print_raw(self) -> None:
+        """
+        Method to print raw data to json.
+
+        Returns
+        -------
+        None
+        """
+        for key, data in self.raw_data.items():
+            file = os.path.join(self.raw_path, str(key) + ".csv")
+            data.to_csv(file, header=True, index=False)
+
+        metadata_file = os.path.join(self.raw_path, "metadata.json")
+        with open(metadata_file, "w", encoding="utf-8") as outfile:
+            json.dump(self.metadata, outfile, indent=4)
+
+    def _generate_single_excel_output(self) -> None:
+        """
+        Generation of single Excel sheets
+
+        Returns
+        -------
+        None
+        """
         self.outputs = {}
         self.results = {}
         self.errors = {}
         self.stat_checks = {}
-        ex_cnf = pd.read_excel(self.cnf_path, sheet_name="Excel")
-        ex_cnf.set_index("Tally", inplace=True)
+        if not self.cfg:
+            raise FileNotFoundError("No yaml configuration file found")
+        ex_cnf = self.cfg.excel_options
 
         # Open the excel file
         # name = "Generic_single.xlsx"
         # template = os.path.join(os.getcwd(), "templates", name)
 
-        if self.mcnp or self.d1s:
+        outputs = {}
+        outpath = os.path.join(
+            self.excel_path, self.testname + "_" + self.lib + ".xlsx"
+        )
+
+        # Parse output
+        results_path = os.path.join(self.test_path, self.code)
+        sim_output, tally_numbers, tally_comments = self.parse_output_data(results_path)
+        # Adjourn raw Data
+        self.raw_data = sim_output.tallydata
+
+        # res, err = output.get_single_excel_data()
+
+        for label in ["Value", "Error"]:
+            # keys = {}
+            for num, key in zip(tally_numbers, tally_comments):
+                # num = tally.tallyNumber
+                # key = tally.tallyComment[0]
+                # keys[num] = key  # Memorize tally descriptions
+                tdata = sim_output.tallydata[num].copy()  # Full tally data
+                try:
+                    tally_settings = ex_cnf[num]
+                except KeyError:
+                    print(" Warning!: tally n." + str(num) + " is not in configuration")
+                    continue
+
+                # Re-Elaborate tdata Dataframe
+                x_name = tally_settings.x
+                x_tag = tally_settings.x_name
+                y_name = tally_settings.y
+                y_tag = tally_settings.y_name
+                ylim = tally_settings.cut_y
+
+                if label == "Value":
+                    outputs[num] = {"title": key, "x_label": x_tag}
+
+                # select the index format
+                if x_name == "Energy":
+                    idx_format = "0.00E+00"
+                    # TODO all possible cases should be addressed
+                else:
+                    idx_format = "0"
+
+                if y_name != "tally":
+                    tdata.set_index(x_name, inplace=True)
+                    x_set = list(set(tdata.index))
+                    y_set = list(set(tdata[y_name].values))
+                    rows = []
+                    for xval in x_set:
+                        try:
+                            row = tdata.loc[xval, label].values
+                            prev_len = len(row)
+                        except AttributeError:
+                            # There is only one total value, fill the rest with
+                            # nan
+                            row = []
+                            for i in range(prev_len - 1):
+                                row.append(np.nan)
+                            row.append(tdata.loc[xval, label])
+
+                        rows.append(row)
+
+                    try:
+                        main_value_df = pd.DataFrame(rows, columns=y_set, index=x_set)
+                        main_value_df.index.name = x_name
+                    except ValueError:
+                        print(
+                            CRED
+                            + """
+    A ValueError was triggered, a probable cause may be that more than 2 binnings
+        are defined in tally {}. This is a fatal exception,  application will now
+    close""".format(str(num))
+                            + CEND
+                        )
+                        # Safely exit from excel and from application
+                        # ex.save()
+                        sys.exit()
+
+                    # reorder index (quick reset of the index)
+                    main_value_df.reset_index(inplace=True)
+                    main_value_df = self._reorder_df(main_value_df, x_name)
+                    main_value_df.set_index(x_name, inplace=True)
+                    # memorize for atlas
+                    outputs[num][label] = main_value_df
+                    # insert the df in pieces
+                    # ex.insert_cutted_df(
+                    #    "B",
+                    #    main_value_df,
+                    #    label + "s",
+                    #    ylim,
+                    #    header=(key, "Tally n." + str(num)),
+                    #    index_name=x_tag,
+                    #    cols_name=y_tag,
+                    #    index_num_format=idx_format,
+                    # )
+                else:
+                    # reorder df
+                    try:
+                        tdata = self._reorder_df(tdata, x_name)
+                    except KeyError:
+                        print(
+                            CRED
+                            + """
+{} is not available in tally {}. Please check the configuration file.
+The application will now exit """.format(x_name, str(num))
+                            + CEND
+                        )
+                        # Safely exit from excel and from application
+                        # ex.save()
+                        sys.exit()
+
+                    if label == "Value":
+                        del tdata["Error"]
+                    elif label == "Error":
+                        del tdata["Value"]
+                    # memorize for atlas and set index
+                    tdata.set_index(x_name, inplace=True)
+                    outputs[num][label] = tdata
+
+                    # Insert DF
+                    # ex.insert_df(
+                    #    "B",
+                    #    tdata,
+                    #    label + "s",
+                    #    print_index=True,
+                    #    header=(key, "Tally n." + str(num)),
+                    # )
+            # memorize data for atlas
+            self.outputs = outputs
+            # print(outputs)
+            # Dump them for comparisons
+            raw_outpath = os.path.join(self.raw_path, self.lib + ".pickle")
+            with open(raw_outpath, "wb") as outfile:
+                pickle.dump(outputs, outfile)
+
+            # Compile general infos in the sheet
+            # ws = ex.current_ws
+            # title = self.testname + " RESULTS RECAP: " + label + "s"
+            # ws.range("A3").value = title
+            # ws.range("C1").value = self.lib
+
+        # --- Compile statistical checks sheet ---
+        # ws = ex.wb.sheets["Statistical Checks"]
+
+        dic_checks = sim_output.stat_checks
+        rows = []
+        for num, key in zip(tally_numbers, tally_comments):
+            # num = tally.tallyNumber
+            # key = tally.tallyComment[0]
+            key_dic = key + " [" + str(num) + "]"
+            try:
+                stat = dic_checks[key_dic]
+            except (KeyError, TypeError):
+                stat = None
+            rows.append([num, key, stat])
+
+        stats = pd.DataFrame(rows)
+        stats.columns = ["Tally Number", "Tally Description", "Result"]
+        # ws.range("A9").options(index=False, header=False).value = df
+
+        # ex.save()
+        exsupp.single_excel_writer(outpath, self.lib, self.testname, outputs, stats)
+
+    def _generate_comparison_excel_output(self) -> None:
+        """
+        Generation of comparsion Excel sheets
+
+        Returns
+        -------
+        None
+        """
+        self.outputs = {}
+        self.results = {}
+        self.errors = {}
+        self.stat_checks = {}
+        if not self.cfg:
+            raise FileNotFoundError("No yaml configuration file found")
+        ex_cnf = self.cfg.excel_options
+
+        # Open the excel file
+        # name_tag = "Generic_comparison.xlsx"
+        # template = os.path.join(os.getcwd(), "templates", name_tag)
+
+        sim_outputs = {}
+        tally_numbers = {}
+        tally_comments = {}
+        comps = {}
+        abs_diffs = {}
+        std_devs = {}
+        for reflib, tarlib, name in self.couples:
+            lib_to_comp = name
+            outfolder_path = self.excel_path
             outpath = os.path.join(
-                self.excel_path, self.testname + "_" + self.lib + ".xlsx"
+                outfolder_path, "Comparison_" + name + f"_{self.code}.xlsx"
             )
-            outputs = {}
+
             # ex = ExcelOutputSheet(template, outpath)
             # Get results
-            # results = []
-            # errors = []
-            results_path = os.path.join(self.test_path, self.code)
-            # Get mfile and outfile and possibly meshtal file
-            meshtalfile = None
-            for file in os.listdir(results_path):
-                if file[-1] == "m":
-                    mfile = os.path.join(results_path, file)
-                elif file[-1] == "o":
-                    ofile = os.path.join(results_path, file)
-                elif file[-4:] == "msht":
-                    meshtalfile = os.path.join(results_path, file)
-            # Parse output
-            mcnp_output = MCNPoutput(mfile, ofile, meshtal_file=meshtalfile)
-            mctal = mcnp_output.mctal
-            # Adjourn raw Data
-            self.raw_data = mcnp_output.tallydata
 
-            # res, err = output.get_single_excel_data()
-
+            # for lib in to_read:
+            #    results_path = self.test_path[lib]
+            for lib, results_path in {
+                reflib: os.path.join(self.test_path[reflib], self.code),
+                tarlib: os.path.join(self.test_path[tarlib], self.code),
+            }.items():
+                # Parse output
+                sim_outputs[lib], tally_numbers[lib], tally_comments[lib] = (
+                    self.parse_output_data(results_path)
+                )
+            # Build the comparison
             for label in ["Value", "Error"]:
-                # keys = {}
-                for tally in mctal.tallies:
-                    num = tally.tallyNumber
-                    key = tally.tallyComment[0]
-                    # keys[num] = key  # Memorize tally descriptions
-                    tdata = mcnp_output.tallydata[num].copy()  # Full tally data
+                for num, key in zip(tally_numbers[reflib], tally_comments[reflib]):
+                    # Full tally data
+                    tdata_ref = sim_outputs[reflib].tallydata[num].copy()
+                    tdata_tar = sim_outputs[tarlib].tallydata[num].copy()
                     try:
-                        tally_settings = ex_cnf.loc[num]
+                        tally_settings = ex_cnf[num]
                     except KeyError:
                         print(
                             " Warning!: tally n."
@@ -636,402 +851,409 @@ class BenchmarkOutput(AbstractOutput):
                         continue
 
                     # Re-Elaborate tdata Dataframe
-                    x_name = tally_settings["x"]
-                    x_tag = tally_settings["x name"]
-                    y_name = tally_settings["y"]
-                    y_tag = tally_settings["y name"]
-                    ylim = tally_settings["cut Y"]
-
-                    if label == "Value":
-                        outputs[num] = {"title": key, "x_label": x_tag}
-
+                    x_name = tally_settings.x
+                    x_tag = tally_settings.x_name
+                    y_name = tally_settings.y
+                    # y_tag = tally_settings["y name"]
+                    # ylim = tally_settings["cut Y"]
                     # select the index format
-                    if x_name == "Energy":
-                        idx_format = "0.00E+00"
-                        # TODO all possible cases should be addressed
-                    else:
-                        idx_format = "0"
+                    if label == "Value":
+                        for dic in [comps, abs_diffs, std_devs]:
+                            dic[num] = {"title": key, "x_label": x_tag}
+
+                    # if x_name == "Energy":
+                    #     idx_format = "0.00E+00"
+                    #     # TODO all possible cases should be addressed
+                    # else:
+                    #     idx_format = "0"
 
                     if y_name != "tally":
-                        tdata.set_index(x_name, inplace=True)
-                        x_set = list(set(tdata.index))
-                        y_set = list(set(tdata[y_name].values))
-                        rows = []
+                        tdata_ref.set_index(x_name, inplace=True)
+                        tdata_tar.set_index(x_name, inplace=True)
+                        x_set = list(set(tdata_ref.index))
+                        y_set = list(set(tdata_ref[y_name].values))
+                        rows_fin = []
+                        rows_abs_diff = []
+                        rows_std_dev = []
                         for xval in x_set:
                             try:
-                                row = tdata.loc[xval, label].values
-                                prev_len = len(row)
+                                ref = tdata_ref.loc[xval, "Value"].values
+                                ref_err = tdata_ref.loc[xval, "Error"].values
+                                tar = tdata_tar.loc[xval, "Value"].values
+                                # !!! True divide warnings are suppressed !!!
+                                with np.errstate(divide="ignore", invalid="ignore"):
+                                    row_fin = (ref - tar) / ref
+                                    row_abs_diff = ref - tar
+                                    row_std_dev = row_abs_diff / (ref_err * ref)
+                                prev_len = len(ref)
                             except AttributeError:
-                                # There is only one total value, fill the rest with
-                                # nan
-                                row = []
+                                # This is raised when total values are
+                                # collected only for one bin.
+                                # the rest needs to be filled by nan
+                                ref = tdata_ref.loc[xval, "Value"]
+                                ref_err = tdata_ref.loc[xval, "Error"]
+                                tar = tdata_tar.loc[xval, "Value"]
+                                row_fin = []
+                                row_abs_diff = []
+                                row_std_dev = []
                                 for i in range(prev_len - 1):
-                                    row.append(np.nan)
-                                row.append(tdata.loc[xval, label])
+                                    row_fin.append(np.nan)
+                                    row_abs_diff.append(np.nan)
+                                    row_std_dev.append(np.nan)
+                                row_fin.append((ref - tar) / ref)
+                                row_abs_diff.append(ref - tar)
+                                row_std_dev.append((ref - tar) / (ref_err * ref))
 
-                            rows.append(row)
-
+                            rows_fin.append(row_fin)
+                            rows_abs_diff.append(row_abs_diff)
+                            rows_std_dev.append(row_std_dev)
                         try:
-                            main_value_df = pd.DataFrame(
-                                rows, columns=y_set, index=x_set
+                            final = pd.DataFrame(rows_fin, columns=y_set, index=x_set)
+                            abs_diff = pd.DataFrame(
+                                rows_abs_diff, columns=y_set, index=x_set
                             )
-                            main_value_df.index.name = x_name
+                            std_dev = pd.DataFrame(
+                                rows_std_dev, columns=y_set, index=x_set
+                            )
+                            for df in [final, abs_diff, std_dev]:
+                                df.index.name = x_name
+                                df.replace(np.nan, "Not Available", inplace=True)
+                                df.replace(float(0), "Identical", inplace=True)
+                                df.replace(-np.inf, "Reference = 0", inplace=True)
+                                df.replace(1, "Target = 0", inplace=True)
                         except ValueError:
                             print(
                                 CRED
                                 + """
         A ValueError was triggered, a probable cause may be that more than 2 binnings
-         are defined in tally {}. This is a fatal exception,  application will now
-        close""".format(
-                                    str(num)
-                                )
+            are defined in tally {}. This is a fatal exception,  application will now
+        close""".format(str(num))
                                 + CEND
                             )
                             # Safely exit from excel and from application
-                            # ex.save()
                             sys.exit()
 
-                        # reorder index (quick reset of the index)
-                        main_value_df.reset_index(inplace=True)
-                        main_value_df = self._reorder_df(main_value_df, x_name)
-                        main_value_df.set_index(x_name, inplace=True)
-                        # memorize for atlas
-                        outputs[num][label] = main_value_df
+                        # reorder index and quick index reset
+                        for df in [final, abs_diff, std_dev]:
+                            df.reset_index(inplace=True)
+                            df = self._reorder_df(df, x_name)
+                            df.set_index(x_name, inplace=True)
+                        comps[num][label] = final
+                        abs_diffs[num][label] = abs_diff
+                        std_devs[num][label] = std_dev
                         # insert the df in pieces
                         # ex.insert_cutted_df(
                         #    "B",
                         #    main_value_df,
-                        #    label + "s",
+                        #    "Comparison",
                         #    ylim,
                         #    header=(key, "Tally n." + str(num)),
                         #    index_name=x_tag,
                         #    cols_name=y_tag,
                         #    index_num_format=idx_format,
+                        #    values_format="0.00%",
                         # )
                     else:
-                        # reorder df
+                        # reorder dfs
                         try:
-                            tdata = self._reorder_df(tdata, x_name)
+                            tdata_ref = self._reorder_df(tdata_ref, x_name)
                         except KeyError:
                             print(
                                 CRED
                                 + """
- {} is not available in tally {}. Please check the configuration file.
- The application will now exit """.format(
-                                    x_name, str(num)
-                                )
+    {} is not available in tally {}. Please check the configuration file.
+    The application will now exit """.format(x_name, str(num))
                                 + CEND
                             )
                             # Safely exit from excel and from application
-                            # ex.save()
                             sys.exit()
 
-                        if label == "Value":
-                            del tdata["Error"]
-                        elif label == "Error":
-                            del tdata["Value"]
-                        # memorize for atlas and set index
-                        tdata.set_index(x_name, inplace=True)
-                        outputs[num][label] = tdata
+                        del tdata_ref["Error"]
+                        tdata_ref.set_index(x_name, inplace=True)
 
+                        tdata_tar = self._reorder_df(tdata_tar, x_name)
+                        del tdata_tar["Error"]
+                        tdata_tar.set_index(x_name, inplace=True)
+
+                        # !!! True divide warnings are suppressed !!!
+                        with np.errstate(divide="ignore", invalid="ignore"):
+                            comp_df = (tdata_ref - tdata_tar) / tdata_ref
+                            abs_diff_df = tdata_ref - tdata_tar
+                            std_dev_df = abs_diff_df
+                        comps[num][label] = comp_df
+                        abs_diffs[num][label] = abs_diff_df
+                        std_devs[num][label] = abs_diff_df
                         # Insert DF
                         # ex.insert_df(
                         #    "B",
-                        #    tdata,
-                        #    label + "s",
+                        #    df,
+                        #    "Comparison",
                         #    print_index=True,
                         #    header=(key, "Tally n." + str(num)),
+                        #    values_format="0.00%",
                         # )
-                # memorize data for atlas
-                self.outputs[self.code] = outputs
-                # print(outputs)
-                # Dump them for comparisons
-                raw_outpath = os.path.join(self.raw_path, self.lib + ".pickle")
-                with open(raw_outpath, "wb") as outfile:
-                    pickle.dump(outputs, outfile)
 
-                # Compile general infos in the sheet
-                # ws = ex.current_ws
-                # title = self.testname + " RESULTS RECAP: " + label + "s"
-                # ws.range("A3").value = title
-                # ws.range("C1").value = self.lib
+            # Compile general infos in the sheet
+            # ws = ex.current_ws
+            # title = self.testname + " RESULTS RECAP: Comparison"
+            # ws.range("A3").value = title
+            # ws.range("C1").value = tarlib + " Vs " + reflib
 
-            # --- Compile statistical checks sheet ---
-            # ws = ex.wb.sheets["Statistical Checks"]
-
-            dic_checks = mcnp_output.out.stat_checks
-            rows = []
-            for tally in mctal.tallies:
-                num = tally.tallyNumber
-                key = tally.tallyComment[0]
-                key_dic = key + " [" + str(num) + "]"
-                try:
-                    stat = dic_checks[key_dic]
-                except KeyError:
-                    stat = None
-                rows.append([num, key, stat])
-
-            stats = pd.DataFrame(rows)
-            stats.columns = ["Tally Number", "Tally Description", "Result"]
-            # ws.range("A9").options(index=False, header=False).value = df
+            # Add single pp sheets
+            # for lib in [reflib, tarlib]:
+            #    cp = self.state.get_path(
+            #        "single", [lib, self.testname, "Excel"])
+            #    file = os.listdir(cp)[0]
+            #    cp = os.path.join(cp, file)
+            #    ex.copy_sheets(cp)
 
             # ex.save()
-            exsupp.single_excel_writer(outpath, self.lib, self.testname, outputs, stats)
-
-    def _print_raw(self):
-        for key, data in self.raw_data.items():
-            file = os.path.join(self.raw_path, str(key) + ".csv")
-            data.to_csv(file, header=True, index=False)
-
-        metadata_file = os.path.join(self.raw_path, "metadata.json")
-        with open(metadata_file, "w", encoding="utf-8") as outfile:
-            json.dump(self.metadata, outfile, indent=4)
-
-    def _generate_comparison_excel_output(self):
-        # Get excel configuration
-        self.outputs = {}
-        self.results = {}
-        self.errors = {}
-        self.stat_checks = {}
-        ex_cnf = pd.read_excel(self.cnf_path, sheet_name="Excel")
-        ex_cnf.set_index("Tally", inplace=True)
-
-        # Open the excel file
-        # name_tag = "Generic_comparison.xlsx"
-        # template = os.path.join(os.getcwd(), "templates", name_tag)
-
-        if self.mcnp or self.d1s:
-            mcnp_outputs = {}
-            comps = {}
-            abs_diffs = {}
-            std_devs = {}
-            for reflib, tarlib, name in self.couples:
-                lib_to_comp = name
-                outfolder_path = self.excel_path
-                outpath = os.path.join(
-                    outfolder_path, "Comparison_" + name + f"_{self.code}.xlsx"
-                )
-
-                # ex = ExcelOutputSheet(template, outpath)
-                # Get results
-
-                # for lib in to_read:
-                #    results_path = self.test_path[lib]
-                for lib, results_path in {
-                    reflib: os.path.join(self.test_path[reflib], self.code),
-                    tarlib: os.path.join(self.test_path[tarlib], self.code),
-                }.items():
-                    # Get mfile and outfile and possibly meshtal file
-                    meshtalfile = None
-                    for file in os.listdir(results_path):
-                        if file[-1] == "m":
-                            mfile = os.path.join(results_path, file)
-                        elif file[-1] == "o":
-                            ofile = os.path.join(results_path, file)
-                        elif file[-4:] == "msht":
-                            meshtalfile = os.path.join(results_path, file)
-                    # Parse output
-                    mcnp_output = MCNPoutput(mfile, ofile, meshtal_file=meshtalfile)
-                    mcnp_outputs[lib] = mcnp_output
-                # Build the comparison
-                for label in ["Value", "Error"]:
-                    for tally in mcnp_outputs[reflib].mctal.tallies:
-                        num = tally.tallyNumber
-                        key = tally.tallyComment[0]
-
-                        # Full tally data
-                        tdata_ref = mcnp_outputs[reflib].tallydata[num].copy()
-                        tdata_tar = mcnp_outputs[tarlib].tallydata[num].copy()
-                        try:
-                            tally_settings = ex_cnf.loc[num]
-                        except KeyError:
-                            print(
-                                " Warning!: tally n."
-                                + str(num)
-                                + " is not in configuration"
-                            )
-                            continue
-
-                        # Re-Elaborate tdata Dataframe
-                        x_name = tally_settings["x"]
-                        x_tag = tally_settings["x name"]
-                        y_name = tally_settings["y"]
-                        # y_tag = tally_settings["y name"]
-                        # ylim = tally_settings["cut Y"]
-                        # select the index format
-                        if label == "Value":
-                            for dic in [comps, abs_diffs, std_devs]:
-                                dic[num] = {"title": key, "x_label": x_tag}
-
-                        # if x_name == "Energy":
-                        #     idx_format = "0.00E+00"
-                        #     # TODO all possible cases should be addressed
-                        # else:
-                        #     idx_format = "0"
-
-                        if y_name != "tally":
-                            tdata_ref.set_index(x_name, inplace=True)
-                            tdata_tar.set_index(x_name, inplace=True)
-                            x_set = list(set(tdata_ref.index))
-                            y_set = list(set(tdata_ref[y_name].values))
-                            rows_fin = []
-                            rows_abs_diff = []
-                            rows_std_dev = []
-                            for xval in x_set:
-                                try:
-                                    ref = tdata_ref.loc[xval, "Value"].values
-                                    ref_err = tdata_ref.loc[xval, "Error"].values
-                                    tar = tdata_tar.loc[xval, "Value"].values
-                                    # !!! True divide warnings are suppressed !!!
-                                    with np.errstate(divide="ignore", invalid="ignore"):
-                                        row_fin = (ref - tar) / ref
-                                        row_abs_diff = ref - tar
-                                        row_std_dev = row_abs_diff / (ref_err * ref)
-                                    prev_len = len(ref)
-                                except AttributeError:
-                                    # This is raised when total values are
-                                    # collected only for one bin.
-                                    # the rest needs to be filled by nan
-                                    ref = tdata_ref.loc[xval, "Value"]
-                                    ref_err = tdata_ref.loc[xval, "Error"]
-                                    tar = tdata_tar.loc[xval, "Value"]
-                                    row_fin = []
-                                    row_abs_diff = []
-                                    row_std_dev = []
-                                    for i in range(prev_len - 1):
-                                        row_fin.append(np.nan)
-                                        row_abs_diff.append(np.nan)
-                                        row_std_dev.append(np.nan)
-                                    row_fin.append((ref - tar) / ref)
-                                    row_abs_diff.append(ref - tar)
-                                    row_std_dev.append((ref - tar) / (ref_err * ref))
-
-                                rows_fin.append(row_fin)
-                                rows_abs_diff.append(row_abs_diff)
-                                rows_std_dev.append(row_std_dev)
-                            try:
-                                final = pd.DataFrame(
-                                    rows_fin, columns=y_set, index=x_set
-                                )
-                                abs_diff = pd.DataFrame(
-                                    rows_abs_diff, columns=y_set, index=x_set
-                                )
-                                std_dev = pd.DataFrame(
-                                    rows_std_dev, columns=y_set, index=x_set
-                                )
-                                for df in [final, abs_diff, std_dev]:
-                                    df.index.name = x_name
-                                    df.replace(np.nan, "Not Available", inplace=True)
-                                    df.replace(float(0), "Identical", inplace=True)
-                                    df.replace(-np.inf, "Reference = 0", inplace=True)
-                                    df.replace(1, "Target = 0", inplace=True)
-                            except ValueError:
-                                print(
-                                    CRED
-                                    + """
-            A ValueError was triggered, a probable cause may be that more than 2 binnings
-             are defined in tally {}. This is a fatal exception,  application will now
-            close""".format(
-                                        str(num)
-                                    )
-                                    + CEND
-                                )
-                                # Safely exit from excel and from application
-                                sys.exit()
-
-                            # reorder index and quick index reset
-                            for df in [final, abs_diff, std_dev]:
-                                df.reset_index(inplace=True)
-                                df = self._reorder_df(df, x_name)
-                                df.set_index(x_name, inplace=True)
-                            comps[num][label] = final
-                            abs_diffs[num][label] = abs_diff
-                            std_devs[num][label] = std_dev
-                            # insert the df in pieces
-                            # ex.insert_cutted_df(
-                            #    "B",
-                            #    main_value_df,
-                            #    "Comparison",
-                            #    ylim,
-                            #    header=(key, "Tally n." + str(num)),
-                            #    index_name=x_tag,
-                            #    cols_name=y_tag,
-                            #    index_num_format=idx_format,
-                            #    values_format="0.00%",
-                            # )
-                        else:
-                            # reorder dfs
-                            try:
-                                tdata_ref = self._reorder_df(tdata_ref, x_name)
-                            except KeyError:
-                                print(
-                                    CRED
-                                    + """
-     {} is not available in tally {}. Please check the configuration file.
-     The application will now exit """.format(
-                                        x_name, str(num)
-                                    )
-                                    + CEND
-                                )
-                                # Safely exit from excel and from application
-                                sys.exit()
-
-                            del tdata_ref["Error"]
-                            tdata_ref.set_index(x_name, inplace=True)
-
-                            tdata_tar = self._reorder_df(tdata_tar, x_name)
-                            del tdata_tar["Error"]
-                            tdata_tar.set_index(x_name, inplace=True)
-
-                            # !!! True divide warnings are suppressed !!!
-                            with np.errstate(divide="ignore", invalid="ignore"):
-                                comp_df = (tdata_ref - tdata_tar) / tdata_ref
-                                abs_diff_df = tdata_ref - tdata_tar
-                                std_dev_df = abs_diff_df
-                            comps[num][label] = comp_df
-                            abs_diffs[num][label] = abs_diff_df
-                            std_devs[num][label] = abs_diff_df
-                            # Insert DF
-                            # ex.insert_df(
-                            #    "B",
-                            #    df,
-                            #    "Comparison",
-                            #    print_index=True,
-                            #    header=(key, "Tally n." + str(num)),
-                            #    values_format="0.00%",
-                            # )
-
-                # Compile general infos in the sheet
-                # ws = ex.current_ws
-                # title = self.testname + " RESULTS RECAP: Comparison"
-                # ws.range("A3").value = title
-                # ws.range("C1").value = tarlib + " Vs " + reflib
-
-                # Add single pp sheets
-                # for lib in [reflib, tarlib]:
-                #    cp = self.state.get_path(
-                #        "single", [lib, self.testname, "Excel"])
-                #    file = os.listdir(cp)[0]
-                #    cp = os.path.join(cp, file)
-                #    ex.copy_sheets(cp)
-
-                # ex.save()
-                self.outputs[self.code] = comps
-                exsupp.comp_excel_writer(
-                    self,
-                    outpath,
-                    lib_to_comp,
-                    self.testname,
-                    comps,
-                    abs_diffs,
-                    std_devs,
-                )
+            self.outputs = comps
+            exsupp.comp_excel_writer(
+                self,
+                outpath,
+                lib_to_comp,
+                self.testname,
+                comps,
+                abs_diffs,
+                std_devs,
+            )
 
 
-class MCNPoutput:
-    def __init__(self, mctal_file, output_file, meshtal_file=None):
+class MCNPBenchmarkOutput(AbstractBenchmarkOutput):
+    def _read_code_version(self, simulation_folder: os.PathLike) -> str | None:
         """
-        Class representing all outputs coming from and MCNP run
+        Read MCNP code version from the output file
+
+        Parameters
+        ----------
+        simulation_folder : os.PathLike
+            output file path
+
+        Returns
+        -------
+        str | None
+            version of the MCNP code used to run the benchmark
+        """
+
+        if self.testname in ["Sphere", "SphereSDDR"]:
+            if not os.path.exists(simulation_folder):
+                return None
+        _, outf, _ = self._get_output_files(simulation_folder)
+        outp = MCNPOutputFile(outf)
+        try:
+            version = outp.get_code_version()
+            return version
+        except ValueError:
+            logging.warning(
+                "Code version not found in the output file or aux file for %s",
+                simulation_folder,
+            )
+            logging.warning(
+                "Contents of the directory: %s",
+                os.listdir(os.path.dirname(simulation_folder)),
+            )
+            return None
+
+    def _get_output_files(
+        self, results_path: str | os.PathLike
+    ) -> tuple[str | os.PathLike, str | os.PathLike, str | os.PathLike]:
+        """
+        Recover the output files from a directory
+
+        Parameters
+        ----------
+        results_path : str or path
+            path where the results are contained.
+
+        Raises
+        ------
+        FileNotFoundError
+            if the required files are not found.
+
+        Returns
+        -------
+        file1 : path
+            path to the first file
+        file2 : path
+            path to the second file
+        file3 : path
+            path to the third file (only for mcnp meshtal)
+
+        """
+        file1 = None
+        file2 = None
+        file3 = None
+
+        for file_name in os.listdir(results_path):
+            if file_name[-1] == "m":
+                file1 = file_name
+            elif file_name[-1] == "o":
+                file2 = file_name
+            elif file_name[-4:] == "msht":
+                file3 = file_name
+
+        if file1 is None or file2 is None:
+            raise FileNotFoundError(
+                f"The following path does not contain the required files for {self.code} output: {results_path}"
+            )
+
+        file1 = os.path.join(results_path, file1) if file1 else None
+        file2 = os.path.join(results_path, file2) if file2 else None
+        file3 = os.path.join(results_path, file3) if file3 else None
+
+        return file1, file2, file3
+
+    def parse_output_data(
+        self, results_path: str | os.PathLike
+    ) -> tuple[MCNPSimOutput, list, list]:
+        """
+        Function for retrieving MCNP simulation output data, tally numbers and tally comments.
+
+        Parameters
+        ----------
+        results_path : str | os.PathLike
+            Path to simulation results
+
+        Returns
+        -------
+        sim_output : MCNPSimOutput
+            Simulation output object, specific to the code being proccessed. This should inherit from AbstractSimOutput.
+        tally_numbers : list
+            List containing all tally numbers in the simulation.
+        tally_comments: list
+            List containing all tally comments in the simulation.
+        """
+        mfile, ofile, meshtalfile = self._get_output_files(results_path)
+        sim_output = MCNPSimOutput(mfile, ofile, meshtal_file=meshtalfile)
+        tally_numbers = sim_output.tally_numbers
+        tally_comments = sim_output.tally_comments
+        return sim_output, tally_numbers, tally_comments
+
+
+class OpenMCBenchmarkOutput(AbstractBenchmarkOutput):
+    def _read_code_version(self, simulation_path: os.PathLike) -> str | None:
+        """Read OpenMC code version from the statepoint file
+
+        Parameters
+        ----------
+        simulation_path : os.PathLike
+            simulation file path
+
+        Returns
+        -------
+        str | None
+            version of the OpenMC code used to run the benchmark
+        """
+        if self.testname in ["Sphere", "SphereSDDR"]:
+            if not os.path.exists(simulation_path):
+                return None
+        _, spfile = self._get_output_files(simulation_path)
+        statepoint = omc.OpenMCStatePoint(spfile)
+        version = statepoint.version
+        return version
+
+    def _get_output_files(
+        self, results_path: str | os.PathLike
+    ) -> tuple[str | os.PathLike, str | os.PathLike]:
+        """
+        Recover the output files from a directory
+
+        Parameters
+        ----------
+        results_path : str or path
+            path where the results are contained.
+        code : str
+            code that generated the output ('mcnp' or 'openmc')
+
+        Raises
+        ------
+        FileNotFoundError
+            if the required files are not found.
+
+        Returns
+        -------
+        file1 : path
+            path to the output file
+        file2 : path
+            path to the StatePoint file
+
+        """
+        file1 = None
+        file2 = None
+
+        for file_name in os.listdir(results_path):
+            if file_name.endswith(".out"):
+                file1 = file_name
+            elif file_name.startswith("statepoint"):
+                file2 = file_name
+
+        if file1 is None or file2 is None:
+            raise FileNotFoundError(
+                f"The following path does not contain the required files for {self.code} output: {results_path}"
+            )
+
+        file1 = os.path.join(results_path, file1) if file1 else None
+        file2 = os.path.join(results_path, file2) if file2 else None
+
+        return file1, file2
+
+    def parse_output_data(
+        self, results_path: str | os.PathLike
+    ) -> tuple[OpenMCSimOutput, list, list]:
+        """_summary_
+
+        Parameters
+        ----------
+        results_path : str | os.PathLike
+            Path to simulation results.
+
+        Returns
+        -------
+        sim_ouput : OpenMCSimOutput
+            OpenMC simulation output object
+        tally_numbers : list
+            List of tally numbers in simulation output
+        tally_comments : list
+            List of tally comments in simulation output
+        """
+        _, sfile = self._get_output_files(results_path)
+        sim_output = OpenMCSimOutput(sfile)
+        tally_numbers = sim_output.output.tally_numbers
+        tally_comments = sim_output.output.tally_comments
+        return sim_output, tally_numbers, tally_comments
+
+
+class AbstractSimOutput:
+    tallydata = None
+    totalbin = None
+
+    def __init__(self) -> None:
+        """
+        Abstract class to enforce inclusion of tallydata and totalbin dictionaries in children simulation output classes
+
+        Raises
+        ------
+        NotImplementedError
+            if tallydata dictionary is not set in child class
+        NotImplementedError
+            if totalbin dictionary is not set in child class
+        """
+        if not isinstance(self.tallydata, dict):
+            raise NotImplementedError
+        if not isinstance(self.totalbin, dict):
+            raise NotImplementedError
+
+
+class MCNPSimOutput(AbstractSimOutput):
+    def __init__(
+        self,
+        mctal_file: str | os.PathLike,
+        output_file: str | os.PathLike,
+        meshtal_file: str | os.PathLike | None = None,
+    ) -> None:
+        """
+        Class representing all outputs coming from MCNP run
 
         Parameters
         ----------
@@ -1094,6 +1316,8 @@ class MCNPoutput:
                         pass  # no user column
 
         self.mctal = mctal
+        self.tally_numbers = []
+        self.tally_comments = []
         self.tallydata = tallydata
         self.totalbin = total_bin
         # Read the output file
@@ -1120,16 +1344,63 @@ class MCNPoutput:
                     self.mctal.tallies.append(dummyTally)
                 else:
                     continue
+        for tally in self.mctal.tallies:
+            self.tally_numbers.append(tally.tallyNumber)
+            if len(tally.tallyComment) > 0:
+                self.tally_comments.append(tally.tallyComment[0])
+            else:
+                self.tally_comments.append("")
 
 
-class OpenMCOutput:
-    def __init__(self, output_file):
-        self.output_file = output_file
-        self.output_file_data = self.read(output_file)
+class OpenMCSimOutput(AbstractSimOutput):
+    def __init__(self, output_path: str | os.PathLike) -> None:
+        """
+        Class representing all outputs coming from OpenMC run
+
+        Parameters
+        ----------
+        output_path : str | os.PathLike
+            Path to simulation output files
+
+        Returns
+        -------
+        None.
+
+        """
+        self.output = omc.OpenMCStatePoint(output_path)
+        self.tally_numbers = self.output.tally_numbers
+        self.tally_comments = self.output.tally_comments
         self.tallydata, self.totalbin = self.process_tally()
         self.stat_checks = None
 
-    def _create_dataframe(self, rows):
+    def _create_dataframes(
+        self, tallies: dict
+    ) -> tuple[dict[int, pd.DataFrame], dict[int, pd.DataFrame]]:
+        """
+        Function to create dataframes in JADE format from OpenMC dataframes.
+
+        Parameters
+        ----------
+        tallies : dict
+            Dictionary of OpenMC tally dataframes, indexed by tally number
+
+        Returns
+        -------
+        tallydata : dict[int, pd.DataFrame]
+            Dictionary of JADE formatted tally dataframes, indexed by tally number
+        totalbin : dict[int, None]]
+            Dictionary of JADE formatted total tally values, each are None for OpenMC
+        """
+        tallydata = {}
+        totalbin = {}
+        filter_lookup = {
+            "cell": "Cells",
+            "surface": "Segments",
+            "energy high [eV]": "Energy",
+            "time": "Time",
+            "mean": "Value",
+            "std. dev.": "Error",
+        }
         columns = [
             "Cells",
             "User",
@@ -1143,403 +1414,51 @@ class OpenMCOutput:
             "Value",
             "Error",
         ]
-        df = pd.DataFrame(rows, columns=columns)
-        cells = list(df.Cells.unique())
-        total = "Energy"
-        for cell in cells:
-            value = df.loc[df["Cells"] == cell, "Values"].sum()
-            error = np.sqrt(sum(df.loc[df["Cells"] == cell, "Values"] ** 2))
-            row = [
-                cell,
-                False,
-                False,
-                False,
-                total,
-                False,
-                False,
-                False,
-                False,
-                value,
-                error,
-            ]
-            df.loc[len(df)] = row
-        dftotal = df[df[total] == "total"]
-        return df, dftotal
+        for id, tally in tallies.items():
+            filters = []
+            new_columns = {}
+            if "cell" in tally.columns:
+                filters.append("cell")
+            if "surface" in tally.columns:
+                filters.append("surface")
+            if "energy high [eV]" in tally.columns:
+                filters.append("energy high [eV]")
+            if "time" in tally.columns:
+                filters.append("time")
+            new_columns = dict(
+                (k, filter_lookup[k]) for k in filters if k in filter_lookup
+            )
+            new_columns["mean"] = filter_lookup["mean"]
+            new_columns["std. dev."] = filter_lookup["std. dev."]
+            sorted_tally = tally.sort_values(filters)
+            sorted_tally = sorted_tally.reset_index(drop=True)
+            sorted_tally = sorted_tally.rename(columns=new_columns)
+            for column in columns:
+                if column not in sorted_tally.columns:
+                    sorted_tally[column] = np.nan
+            sorted_tally = sorted_tally[columns]
+            # sorted_tally.to_csv('tally_'+str(id)+'_sorted.csv')
+            tallydata[id] = sorted_tally
+            totalbin[id] = None
+        return tallydata, totalbin
 
-    def read(self, output_file):
-        with open(output_file, "r") as f:
-            output_file_data = f.readlines()
-        return output_file_data
+    def process_tally(self) -> tuple[dict[int, pd.DataFrame], dict[int, pd.DataFrame]]:
+        """
+        Function to retrieve OpenMC tally dataframes, and re-format for JADE.
 
-    def process_tally(self):
-        tallydata = {}
-        totalbin = {}
-        rows = []
-        for line in self.output_file_data:
-            if "tally" in line.lower():
-                if len(rows) > 0:
-                    tallydata[tallynum], totalbin[tallynum] = self._create_dataframe(
-                        rows
-                    )
-                    rows = []
-                parts = line.split()
-                tallynum = int(parts[2].replace(":", ""))
-                cells = False
-                user = False
-                segments = False
-                cosine = False
-                energy = False
-                time = False
-                cor_c = False
-                cor_b = False
-                cor_a = False
-                value = False
-                error = False
-            if "incoming energy" in line.lower():
-                parts = line.split()
-                energy = 1e-6 * float(parts[3].replace(")", ""))
-            if "flux" in line.lower():
-                parts = line.split()
-                value, error = float(parts[1]), float(parts[2])
-                rows.append(
-                    [
-                        cells,
-                        user,
-                        segments,
-                        cosine,
-                        energy,
-                        time,
-                        cor_c,
-                        cor_b,
-                        cor_a,
-                        value,
-                        error,
-                    ]
-                )
-            tallydata[tallynum], totalbin[tallynum] = self._create_dataframe(rows)
+        Returns
+        -------
+        tallydata : dict[int, pd.DataFrame]
+            Dictionary of JADE formatted tally dataframes, indexed by tally number
+        totalbin : dict[int, None]]
+            Dictionary of JADE formatted total tally values, each are None for OpenMC
+        """
+        tallies = self.output.tallies_to_dataframes()
+        tallydata, totalbin = self._create_dataframes(tallies)
         return tallydata, totalbin
 
 
-class ExcelOutputSheet:
-    # Common variables
-    _starting_free_row = 10
-
-    def __init__(self, template, outpath):
-        """
-        Excel workbook containing the post-processed results
-
-        Parameters
-        ----------
-        template : path like object
-            path to the sheet template.
-        outpath : path like object
-            dump path for the excel.
-
-        Returns
-        -------
-        None.
-
-        """
-        self.outpath = outpath  # Path to the excel file
-        # Open template
-        shutil.copy(template, outpath)
-        # self.app = xw.App(visible=False)
-        self.wb = self.app.books.open(outpath)
-        # The first open row in current ws
-        self.free_row = self._starting_free_row
-        self.ws_free_rows = {}
-        self.current_ws = None
-
-    def _switch_ws(self, ws_name):
-        """
-        Change active worksheet without loosing parameters informations.
-
-        Parameters
-        ----------
-        ws_name : str
-            Worksheet name.
-
-        Returns
-        -------
-        ws : xlwings.Sheet
-            Excel worksheet.
-
-        """
-        # Adjourn free row sheet
-        if self.current_ws is not None:
-            self.ws_free_rows[self.current_ws.name] = self.free_row
-
-        # Select new sheet
-        ws = self.wb.sheets[ws_name]
-        self.current_ws = ws
-        try:
-            self.free_row = self.ws_free_rows[ws_name]
-        except KeyError:
-            self.free_row = self._starting_free_row
-
-        return ws
-
-    def insert_df(
-        self,
-        startcolumn,
-        df,
-        ws,
-        startrow=None,
-        header=None,
-        print_index=True,
-        idx_format="0",
-        cols_head_size=12,
-        values_format=None,
-    ):
-        """
-        Insert a DataFrame (df) into a Worksheet (ws) using xlwings.
-
-        Parameters
-        ----------
-        startcolumn : int or str
-            Starting column where to insert the DataFrame. It can be expressed
-            both as an integer as a letter in Excel fashion.
-        df : pandas.DataFrame
-            DataFrame to insert in the excel sheet
-        ws : str
-            name of the Excel worksheet where to put the DataFrame.
-        startrow : int
-            starting row where to put the DataFrame. Default is None that
-            triggers the use of the memorized first free row in the excel sheet
-        header : tuple (str, value)
-            contains the tag of the header and the header value. DEAFAULT is
-            None
-        print_index : bool
-            if True the DataFrame index is printed. DEAFAULT is True.
-        idx_format : str
-            how to format the index values. DEAFAULT is '0' (integer)
-        cols_head_size : int
-            Font size for columns header. DEAFAULT is 12
-        values_format : str
-            how to format the values. DEAFAULT is None
-
-        Returns
-        -------
-        None
-
-        """
-        # Select the worksheet as first thing in order to have the correct
-        # Free rows computed
-        ws = self._switch_ws(ws)
-
-        if startrow is None:
-            startrow = self.free_row
-            # adjourn free row
-            add_space = 3  # Includes header
-            self.free_row = self.free_row + len(df) + add_space
-
-        # Start column can be provided as a letter or number (up to Z)
-        if isinstance(startcolumn, str):
-            startcolumn = ord(startcolumn.lower()) - 96
-
-        anchor = (startrow, startcolumn)
-        header_anchor_tag = (startrow, 1)
-        header_anchor = (startrow + 1, 1)
-
-        try:
-            ws.range(anchor).options(index=print_index, header=True).value = df
-            rng = ((startrow + 1, startcolumn), (startrow + 1 + len(df), startcolumn))
-            # Format values if requested
-            if values_format is not None:
-                rng_values = (
-                    (startrow + 1, startcolumn + 1),
-                    (startrow + 1 + len(df), startcolumn + 1 + len(df.columns)),
-                )
-                ws.range(*rng_values).number_format = values_format
-
-            # Formatting
-            ws.range(*rng).number_format = idx_format  # idx formatting
-            # Columns headers
-            anchor_columns = (anchor, (startrow, startcolumn + len(df.columns)))
-            ws.range(*anchor_columns).api.Font.Size = cols_head_size
-            ws.range(*anchor_columns).api.Font.Bold = True
-            ws.range(*anchor_columns).color = (236, 236, 236)
-
-            if header is not None:
-                ws.range(header_anchor_tag).value = header[0]
-                ws.range(header_anchor_tag).api.Font.Size = cols_head_size
-                ws.range(header_anchor_tag).api.Font.Bold = True
-                ws.range(header_anchor_tag).color = (236, 236, 236)
-
-                ws.range(header_anchor).value = header[1]
-                ws.range(header_anchor).api.Font.Size = cols_head_size
-                ws.range(header_anchor_tag).api.Font.Bold = True
-                ws.range(header_anchor_tag).color = (236, 236, 236)
-
-        except Exception as e:
-            print(vars(e))
-            print(header)
-            print(df)
-
-    def insert_cutted_df(
-        self,
-        startcolumn,
-        df,
-        ws,
-        ylim,
-        startrow=None,
-        header=None,
-        index_name=None,
-        cols_name=None,
-        index_num_format="0",
-        values_format=None,
-    ):
-        """
-        Insert a DataFrame in the excel cutting its columns
-
-        Parameters
-        ----------
-        startcolumn : str/int
-            Excel column where to put the first DF column.
-        df : pd.DataFrame
-            global DF to insert.
-        ws : str
-            Excel worksheet where to insert the DF.
-        ylim : int
-            limit of columns to use to cut the DF.
-        startrow : int, optional
-            initial Excel row. The default is None,
-            the first available is used.
-        header : tuple (str, value)
-            contains the tag of the header and the header value. DEAFAULT is
-            None
-        index_name : str
-            Name of the Index. DEAFAULT is None
-        cols_name : str
-            Name of the columns. DEFAULT is None
-        index_num_format: str
-            format of index numbers
-        values_format : str
-            how to format the values. DEAFAULT is None
-
-        Returns
-        -------
-        None.
-
-        """
-        # First of all we need to switch ws or all calculation of free row
-        # will be wrongly affected
-        self._switch_ws(ws)
-
-        res_len = len(df.columns)
-        start_col = 0
-        ylim = int(ylim)
-        # ws = self.wb.sheets[ws]
-        # Decode columns for index and columns names
-        if isinstance(startcolumn, int):
-            index_col = string.ascii_uppercase[startcolumn]
-            columns_col = string.ascii_uppercase[startcolumn + 1]
-        elif isinstance(startcolumn, str):
-            index_col = startcolumn
-            columns_col = chr(ord(startcolumn) + 1)
-
-        # Add each DataFrame piece
-        new_ylim = ylim
-        while res_len > ylim:
-            curr_df = df.iloc[:, start_col:new_ylim]
-            # Memorize anchors for headers name
-            anchor_index = index_col + str(self.free_row)
-            anchor_cols = columns_col + str(self.free_row - 1)
-            end_anchor_cols = chr(ord(columns_col) + len(curr_df.columns) - 1) + str(
-                self.free_row - 1
-            )
-            # Insert cutted df
-            self.insert_df(
-                startcolumn,
-                curr_df,
-                ws,
-                header=header,
-                idx_format=index_num_format,
-                values_format=values_format,
-            )
-            # Insert columns name and index name
-            self.current_ws.range(anchor_index).value = index_name
-            self.current_ws.range(anchor_index).api.Font.Size = 12
-            self.current_ws.range(anchor_index).api.Font.Bold = True
-            self.current_ws.range(anchor_index).color = (236, 236, 236)
-
-            self.current_ws.range(anchor_cols).value = cols_name
-            self.current_ws.range(anchor_cols).api.Font.Size = 12
-            self.current_ws.range(anchor_cols).api.Font.Bold = True
-            self.current_ws.range(anchor_cols).color = (236, 236, 236)
-            self.current_ws.range(anchor_cols + ":" + end_anchor_cols).merge()
-            # Adjourn parameters
-            start_col = start_col + ylim
-            new_ylim = new_ylim + ylim
-            res_len = res_len - ylim
-
-        # Add the remaining piece
-        if res_len != 0:
-            curr_df = df.iloc[:, -res_len:]
-            # Memorize anchors for headers name
-            anchor_index = index_col + str(self.free_row)
-            anchor_cols = columns_col + str(self.free_row - 1)
-            end_anchor_cols = chr(ord(columns_col) + len(curr_df.columns) - 1) + str(
-                self.free_row - 1
-            )
-
-            self.insert_df(
-                startcolumn,
-                curr_df,
-                ws,
-                header=header,
-                idx_format=index_num_format,
-                values_format=values_format,
-            )
-            # Insert columns name and index name
-            self.current_ws.range(anchor_index).value = index_name
-            self.current_ws.range(anchor_cols).value = cols_name
-            # Merge the cols name
-            self.current_ws.range(anchor_cols + ":" + end_anchor_cols).merge()
-
-        # Adjust lenght
-        self.current_ws.range(index_col + ":AAA").autofit()
-
-    def copy_sheets(self, wb_origin_path):
-        """
-        Copy all sheets of the selected excel file into the current one
-
-        Parameters
-        ----------
-        wb_origin_path : str/path
-            Path to excel file containing sheets to add.
-
-        Returns
-        -------
-        None.
-
-        """
-        wb = self.app.books.open(wb_origin_path)
-        for sheet in wb.sheets:
-            # copy to a new workbook
-            sheet.api.Copy()
-
-            # copy to an existing workbook by putting it in front of a
-            # worksheet object
-            sheet.api.Copy(Before=self.wb.sheets[0].api)
-
-    def save(self):
-        """
-        Save Excel
-        """
-        self.app.calculate()
-        try:
-            self.wb.save()
-        except FileNotFoundError as e:
-            print(" The following is the original exception:")
-            print(e)
-            print("\n it may be due to invalid characters in the file name")
-
-        self.wb.close()
-        self.app.quit()
-
-
-def fatal_exception(message=None):
+def fatal_exception(message: str | None = None) -> None:
     """
     Use this function to exit with a code error from a handled exception
 

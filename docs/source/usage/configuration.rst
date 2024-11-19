@@ -193,25 +193,36 @@ Computational benchmark post-processing configuration
 It is possible to control (to some extent) the post-processing of each benchmark via its 
 specific configuration file. These files are located in the ``<JADE_root>\Configuration\Benchmarks_Configuration``
 folder and their name must be identical to the one used in the ``File Name`` field in the main configuration file
-(using the .xlsx extension instead of the .i). These files are available only for computational benchmarks,
-since the high degree of customization needed for an experimental benchmark makes quite difficult to 
-standardize them. While computational benchmarks can be added to the JADE suite without the need for additional
+(using the .yaml extension instead of the .i). Computational benchmark configuration files must be in YAML format, while
+experimental benchmark configuration files are in Excel format due to the high degreee of customisation required. 
+
+While computational benchmarks can be added to the JADE suite without the need for additional
 coding, this is not true also for experimental one.
 
-The files contain two main sheets, that respectively regulate the Excel and the Word/PDF (i.e., Atlas) post-processing output.
+The files contain two main sections, that respectively regulate the Excel and the Word/PDF (i.e., Atlas) post-processing output.
 
 Excel
 -----
 
-.. image:: ../img/conf/excelbench.png
-    :width: 600
+.. codeblock:: yaml
 
-This sheet regulates the Excel output derived from the benchmark. It consists of a table where each row regulates
-the output of a single tally present in the MCNP input.
+    # Example of an extract from a benchmark configuration file, Excel section
+    Excel:
+        4.0:
+            cut_y: 20.0
+            identifier: 4
+            x: Energy
+            x_name: Energy [MeV]
+            y: Cells
+            y_name: Cell
+    
+
+This section regulates the Excel output derived from the benchmark. Each entry 
+corresponds to a different tally present in the input file (tally number).
 
 Hereinafter a description of the available fields is reported.
 
-Tally
+identifier
     tally number according to MCNP input file.
 x, y
     select the binnings to be used for the presentation of the excel results of the specific tally. Clearly,
@@ -254,10 +265,10 @@ x, y
         If a 1D FMESH is defined in the MCNP input, JADE will automatically transform it to a "binned" tally and handle it
         as any other tally using the ``Cor A``, ``Cor B`` or ``Cor C`` field.
 
-x name, y name
+x_name, y_name
     These will be the names associated to the **x** and **y** axis printed in the excel file.
 
-cut Y
+cut_y
     The idea behind JADE is to produce outputs that are easy to investigate simply by scrolling and concentrate on the
     main results highlighted through colors. Having a high number of bins both in the x and y axis may cause a problem
     in this sense, forcing the user to scroll on both axis. For this reason, a maximum number of columns can be set to
@@ -267,30 +278,37 @@ cut Y
 Atlas
 -----
 
-.. image:: ../img/conf/atlasbench.png
-    :width: 600
+.. codeblock:: yaml
+
+    # Example of an extract from a benchmark configuration file, Atlas section
+    Atlas:
+        4:
+            identifier: 4
+            plot_type: Binned graph
+            quantity: Neutron Flux
+            unit: '#/cm^2'
 
 This sheet regulates the Atlas output (Word) derived from the benchmark. It consists of a table where each row regulates
 the output of a single tally present in the input.
 Hereinafter a description of the available fields is reported.
 
-Tally
+identifier
     tally number according to input file.
-Quantity
-    Physical quantity that will be plotted on the y-axis of the plot. For the x-axis the one specified in the Excel sheet
+quantity
+    Physical quantity that will be plotted on the y-axis of the plot. For the x-axis the one specified in the excel section
     under **x** will be considered. The quantity selected for plotting will always be the tallied quantity.
 
     .. important::
-        when two binnings are specified in the Excel sheet, a different plot for each of the **y** bins will be produced.
+        when two binnings are specified in the Excel section, a different plot for each of the **y** bins will be produced.
         For example, let's consider a neutron flux tally binned both in energy (selected as **x**) and cells (selected as **y**).
         Then, a plot showing the neutron flux as a function of energy will be produced for each cell. On the contrary, if the cell
         binning is assigned to **x** and the energy one to **y**, a plot showing the neutron flux as a function of the cell would
         be produced for each energy interval.
-Unit
+unit
     Unit associated to the Quantity.
-<Graph type>
-    Different columns can be added where it can be specified if a plot in the style indicated by the column name
-    should be generated (``true``) or not (``false``). The available plot styles are *Binned graph*, *Ratio Graph*,
+plot_type
+    The type of plot that will be produced.
+    The available plot styles are *Binned graph*, *Ratio Graph*,
     *Experimental points* and *Grouped bars*.
 
     .. seealso::

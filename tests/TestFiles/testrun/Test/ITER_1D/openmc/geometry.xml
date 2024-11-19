@@ -1,33 +1,10 @@
 <geometry>
   <surface boundary="transmission" coeffs="0.0 0.0 287.5" id="1" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 291.97" id="60" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 296.44" id="61" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 300.91" id="62" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 305.38" id="63" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 309.85" id="64" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 314.32" id="65" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 318.79" id="66" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 323.26" id="67" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 327.73" id="68" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 332.2" id="69" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 336.67" id="70" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 341.14" id="71" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 345.61" id="72" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 350.08" id="73" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 354.55" id="74" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 359.02" id="75" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 363.49" id="76" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 367.96" id="77" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 372.43" id="78" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 376.9" id="2" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 377.0" id="3" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 390.5" id="4" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 395.5" id="5" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 400.5" id="6" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 406.6" id="80" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 412.7" id="81" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 418.8" id="82" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 424.9" id="83" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 431.0" id="7" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 436.0" id="8" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 441.0" id="9" type="z-cylinder" />
@@ -70,6 +47,37 @@
   <surface boundary="transmission" coeffs="0.0 0.0 1185.3" id="46" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1222.8" id="47" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1227.8" id="48" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 1274.7" id="49" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 1279.7" id="50" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 1284.7" id="51" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 1300.0" id="52" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 1300.1" id="53" type="z-cylinder" />
+  <surface boundary="vacuum" coeffs="0.0 0.0 1389.5" id="54" type="z-cylinder" />
+  <surface boundary="reflective" coeffs="1000.0" id="55" type="z-plane" />
+  <surface boundary="reflective" coeffs="-1000.0" id="56" type="z-plane" />
+  <surface boundary="transmission" coeffs="0.0 0.0 291.97" id="60" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 296.44" id="61" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 300.91" id="62" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 305.38" id="63" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 309.85" id="64" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 314.32" id="65" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 318.79" id="66" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 323.26" id="67" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 327.73" id="68" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 332.2" id="69" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 336.67" id="70" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 341.14" id="71" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 345.61" id="72" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 350.08" id="73" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 354.55" id="74" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 359.02" id="75" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 363.49" id="76" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 367.96" id="77" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 372.43" id="78" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 406.6" id="80" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 412.7" id="81" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 418.8" id="82" type="z-cylinder" />
+  <surface boundary="transmission" coeffs="0.0 0.0 424.9" id="83" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1232.49" id="84" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1237.18" id="85" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1241.87" id="86" type="z-cylinder" />
@@ -79,11 +87,6 @@
   <surface boundary="transmission" coeffs="0.0 0.0 1260.63" id="90" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1265.32" id="91" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1270.01" id="92" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 1274.7" id="49" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 1279.7" id="50" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 1284.7" id="51" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 1300.0" id="52" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="0.0 0.0 1300.1" id="53" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1304.57" id="93" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1309.04" id="94" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1313.51" id="95" type="z-cylinder" />
@@ -103,9 +106,6 @@
   <surface boundary="transmission" coeffs="0.0 0.0 1376.09" id="109" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1380.56" id="110" type="z-cylinder" />
   <surface boundary="transmission" coeffs="0.0 0.0 1385.03" id="111" type="z-cylinder" />
-  <surface boundary="vacuum" coeffs="0.0 0.0 1389.5" id="54" type="z-cylinder" />
-  <surface boundary="transmission" coeffs="1000.0" id="55" type="z-plane" />
-  <surface boundary="vacuum" coeffs="-1000.0" id="56" type="z-plane" />
   <cell id="1" material="void" region=" -55 56 -1" universe="0" />
   <cell id="2" material="13" region=" -55 56 1 -60" universe="0" />
   <cell id="3" material="13" region=" -55 56 60 -61" universe="0" />

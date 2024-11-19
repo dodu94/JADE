@@ -1,0 +1,173 @@
+Atlas:
+  4:
+    identifier: 4
+    plot_type: Binned graph
+    quantity: Neutron Flux
+    unit: '#/cm^2'
+  6:
+    identifier: 6
+    plot_type: Ratio graph
+    quantity: Total Nuclear Heating
+    unit: W/g
+  14:
+    identifier: 14
+    plot_type: Binned graph
+    quantity: Photon Flux
+    unit: '#/cm^2'
+  16:
+    identifier: 16
+    plot_type: Ratio graph
+    quantity: Neutron Heating
+    unit: W/g
+  204:
+    identifier: 204
+    plot_type: Ratio graph
+    quantity: Neutron Flux
+    unit: '#/cm^2'
+  214:
+    identifier: 214
+    plot_type: Ratio graph
+    quantity: Photon Flux
+    unit: '#/cm^2'
+Excel:
+  4.0:
+    cut_y: 20.0
+    identifier: 4
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells
+    y_name: Cell
+  6.0:
+    identifier: 6
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  14.0:
+    cut_y: 20.0
+    identifier: 14
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells
+    y_name: Cell
+  16.0:
+    identifier: 16
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  24.0:
+    identifier: 24
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  26.0:
+    identifier: 26
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  34.0:
+    identifier: 34
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  44.0:
+    identifier: 44
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  54.0:
+    identifier: 54
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  64.0:
+    identifier: 64
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  74.0:
+    identifier: 74
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  84.0:
+    identifier: 84
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  94.0:
+    identifier: 94
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  104.0:
+    identifier: 104
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  114.0:
+    identifier: 114
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  124.0:
+    identifier: 124
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  134.0:
+    identifier: 134
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  144.0:
+    identifier: 144
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  154.0:
+    identifier: 154
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  164.0:
+    identifier: 164
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  174.0:
+    cut_y: 20.0
+    identifier: 174
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells
+    y_name: Cell
+  204.0:
+    identifier: 204
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  214.0:
+    identifier: 214
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value

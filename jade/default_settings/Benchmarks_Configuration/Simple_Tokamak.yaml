@@ -1,0 +1,132 @@
+Atlas:
+  64:
+    identifier: 64
+    plot_type: Binned graph
+    quantity: Neutron Flux
+    unit: '#/cm^2'
+  74:
+    identifier: 74
+    plot_type: Binned graph
+    quantity: Photon Flux
+    unit: '#/cm^2'
+  84:
+    identifier: 84
+    plot_type: Binned graph
+    quantity: Neutron Flux
+    unit: '#/cm^2'
+  94:
+    identifier: 94
+    plot_type: Binned graph
+    quantity: Photon Flux
+    unit: '#/cm^2'       
+  6:
+    identifier: 6
+    plot_type: Ratio graph
+    quantity: Neutron Heating
+    unit: W
+  16:
+    identifier: 16
+    plot_type: Ratio graph
+    quantity: Photon Heating
+    unit: W
+Excel:
+  24:
+    identifier: 24
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  34:
+    identifier: 34
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  44:
+    identifier: 44
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  54:
+    identifier: 54
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  64:
+    cut_y: 20.0
+    identifier: 64
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells
+    y_name: Cell
+  74:
+    cut_y: 20.0
+    identifier: 74
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells
+    y_name: Cell
+  84:
+    cut_y: 20.0
+    identifier: 84
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells
+    y_name: Cell
+  94:
+    cut_y: 20.0
+    identifier: 94
+    x: Energy
+    x_name: Energy [MeV]
+    y: Cells
+    y_name: Cell
+  6:
+    identifier: 6
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  16:
+    identifier: 16
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  26:
+    identifier: 26
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  36:
+    identifier: 36
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  46:
+    identifier: 46
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  56:
+    identifier: 56
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  104:
+    identifier: 104
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value
+  114:
+    identifier: 114
+    x: Cells
+    x_name: Cell
+    y: tally
+    y_name: Value

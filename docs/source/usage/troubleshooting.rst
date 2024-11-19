@@ -2,8 +2,8 @@
 Troubleshooting
 ###############
 
-Unable to post-process a libray
-===============================
+Unable to post-process a library
+================================
 
 It may happen that the request to post-process a library fails, prompting to
 video that the library in question has not been run.

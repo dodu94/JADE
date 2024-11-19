@@ -10,8 +10,8 @@ assignees: ''
 
 ## Is the new benchmark computational or experimental?
 
-- [x] Computational
-- [] Experimental
+- [ ] Computational
+- [ ] Experimental
 
 ## Is this a MultiTest or a normal Test?
 Specify here if the benchmark consists of only one transport run or it is a collection of input files that have the same general structure.
@@ -28,8 +28,8 @@ to be implemented.
 Specify here for which codes the benchmark should be developed.
 
 ## Can inputs of this benchmark be freely re-distributed?
-- [x] yes
-- [] no
+- [ ] yes
+- [ ] no
 
 If no, please specificy who will be able to access the inputs.
 
@@ -46,7 +46,7 @@ Some generic classes have been already developed for experimental classes of ben
 can use one of these classes or a new one needs to be created.
 
 ## Can experimental data of this benchmark be freely re-distributed?
-- [x] yes
-- [] no
+- [ ] yes
+- [ ] no
 
 If no, please specificy who will be able to access the experimental data.

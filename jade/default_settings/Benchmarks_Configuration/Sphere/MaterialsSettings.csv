@@ -5,5 +5,18 @@ NPS cut-off,CTME cut-off,Relative Error cut-off,Density [g/cc],Name,Symbol,Let O
 ,,F32-0.0005,2.2875,Ordinary Concrete,M200,True
 ,,F32-0.0005,2.33,Natural Silicon,M900,True
 ,,F32-0.0005,0.93,Polyethylene (non-borated),M901,True
-,,F32-0.0005,9,Tungsten,M74,TRUE
-,,F32-0.0005,3.18,CaF2,M10,TRUE
+,,F32-0.0005,19,Tungsten,M74,True
+,,F32-0.0005,3.18,CaF2,M10,True
+,,F32-0.0005,10.49,Pure Silver,M11,True
+,,F32-0.0005,11.348,Pure Lead,M9011,True
+,,F32-0.0005,2.7,Al-6061,M200133,True
+,,F32-0.0005,7.6,Al-Bronze,M200117,True
+,,F32-0.0005,3.6,Borated Heavy Concrete,M200368,True
+,,F32-0.0005,8.9,Copper Chromium Zirconium,M302,True
+,,F32-0.0005,7.8,Eurofer-97,M9001,True
+,,F32-0.0005,8.2,Inconel-718,M9010,True
+,,F32-0.0005,6.03,NbTi,M909,True
+,,F32-0.0005,1.82,Beryllium,M4,True
+,,F32-0.0005,4.43,Titanium alloy Grade 5,M910,True
+,,F32-0.0005,7.92,SS660,M125,True
+,,F32-0.0005,0.4,Microtherm,M911,True

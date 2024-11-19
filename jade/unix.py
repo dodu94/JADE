@@ -26,18 +26,18 @@ import re
 import subprocess
 import sys
 
-if "MODULEPATH" not in os.environ and "win" not in sys.platform:
-    f = open(os.environ["MODULESHOME"] + "/init/.modulespath", "r")
-    path = []
-    for line in f.readlines():
-        line = re.sub("#.*$", "", line)
-        if line != "":
-            path.append(line)
-    os.environ["MODULEPATH"] = ":".join(path)
+if "MODULESHOME" in os.environ:
+    if "MODULEPATH" not in os.environ and "win" not in sys.platform:
+        f = open(os.environ["MODULESHOME"] + "/init/.modulespath", "r")
+        path = []
+        for line in f.readlines():
+            line = re.sub("#.*$", "", line)
+            if line != "":
+                path.append(line)
+        os.environ["MODULEPATH"] = ":".join(path)
 
-if "LOADEDMODULES" not in os.environ and "win" not in sys.platform:
-    os.environ["LOADEDMODULES"] = ""
-
+    if "LOADEDMODULES" not in os.environ and "win" not in sys.platform:
+        os.environ["LOADEDMODULES"] = ""
 
 def module(*args: list) -> None:
     """Runs the module command using subprocess"""

@@ -20,6 +20,19 @@ plus some typically used material in the ITER project namely:
 * Polyethylene (non-borated).
 * Tungsten
 * CaF2
+* Pure Silver
+* Pure Lead
+* Al-6061
+* Al-Bronze
+* Borated Heavy Concrete
+* Copper Chromium Zirconium
+* Eurofer-97
+* Inconel-718
+* NbTi
+* Beryllium
+* Titanium alloy, Grade 5
+* SS660
+* Microtherm
 
 Geometry and run parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

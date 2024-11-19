@@ -45,6 +45,11 @@ MULTI_TEST = [
     "ASPIS-Fe88",
     "TUD-Fe",
     "TUD-W",
+    "FNG-SiC",
+    "FNG-HCPB",
+    "ASPIS-PCA-Replica_flux",
+    "ASPIS-PCA-Replica_RR",
+    "FNG-SS",
 ]
 EXP_TAG = "Exp"
 CODES = ["mcnp", "serpent", "openmc", "d1s"]

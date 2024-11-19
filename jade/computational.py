@@ -119,6 +119,10 @@ def executeBenchmarksRoutines(session, lib: str, runoption: str, exp=False) -> N
                 "FNG Bulk Blanket and Shielding Experiment",
                 "FNG Tungsten",
                 "ASPIS Iron-88 benchmark",
+                "FNG SiC",
+                "FNG HCPB",
+                "ASPIS PCA Replica RR",
+                "FNG Stainless Steel",
             ]:
                 var = {"00c": lib, "34y": "34y"}
             else:
@@ -153,6 +157,11 @@ def executeBenchmarksRoutines(session, lib: str, runoption: str, exp=False) -> N
                 "ASPIS-Fe88",
                 "TUD-Fe",
                 "TUD-W",
+                "FNG-SiC",
+                "FNG-HCPB",
+                "ASPIS-PCA-Replica_flux",
+                "ASPIS-PCA-Replica_RR",
+                "FNG-SS",
             ]:
                 test = testrun.MultipleTest(*args)
 

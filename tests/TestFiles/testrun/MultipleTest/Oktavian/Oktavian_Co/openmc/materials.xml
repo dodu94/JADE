@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='utf-8'?>
 <materials>
   <material id="1" name="M1">
     <density units="g/cc" value="1.94" />

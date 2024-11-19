@@ -24,6 +24,7 @@ along with JADE.  If not, see <http://www.gnu.org/licenses/>.
 import sys
 import os
 import json
+import pytest
 
 cp = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(cp)
@@ -37,8 +38,12 @@ from jade.expoutput import SpectrumOutput
 import jade.sphereoutput as sout
 from jade.configuration import Configuration
 from jade.__version__ import __version__
-from jade.output import MCNPoutput
+from jade.output import MCNPSimOutput
 from jade.postprocess import compareBenchmark
+from jade.__openmc__ import OMC_AVAIL
+
+if OMC_AVAIL:
+    import jade.openmc as omc
 
 # Files
 OUTP_SDDR = os.path.join(
@@ -49,9 +54,9 @@ OUTM_SDDR = os.path.join(
 )
 
 
-class TestSphereSDDRMCNPoutput:
+class TestSphereSDDRMCNPSimOutput:
 
-    out = sout.SphereSDDRMCNPoutput(OUTM_SDDR, OUTP_SDDR)
+    out = sout.SphereSDDRMCNPOutput(OUTM_SDDR, OUTP_SDDR)
 
     def test_get_single_excel_data(self):
         vals, errors = self.out.get_single_excel_data()
@@ -61,9 +66,9 @@ class TestSphereSDDRMCNPoutput:
         assert len(errors) == 23
 
 
-class TestMCNPoutput:
+class TestMCNPSimOutput:
     def test_mcnpoutput(self):
-        out = MCNPoutput(OUTM_SDDR, OUTP_SDDR)
+        out = MCNPSimOutput(OUTM_SDDR, OUTP_SDDR)
         t4 = out.tallydata[4]
         t2 = out.tallydata[2]
         assert list(t4.columns) == ["Cells", "Segments", "Value", "Error"]
@@ -100,12 +105,12 @@ class MockSession:
 
 class TestBenchmarkOutput:
 
-    def test_single_excel(self, tmpdir):
+    def test_single_excel_mcnp(self, tmpdir):
         conf = Configuration(
             os.path.join(cp, "TestFiles", "output", "config_test.xlsx")
         )
         session = MockSession(conf, tmpdir)
-        out = output.BenchmarkOutput("32c", "mcnp", "ITER_1D", session)
+        out = output.MCNPBenchmarkOutput("32c", "mcnp", "ITER_1D", session)
         out._generate_single_excel_output()
         out._print_raw()
 
@@ -127,15 +132,46 @@ class TestBenchmarkOutput:
             metadata = json.load(f)
         assert metadata["jade_run_version"] == "0.0.1"
         assert metadata["jade_version"] == __version__
+        assert metadata["code_version"] == "6.2"
+
+    @pytest.mark.skipif(not OMC_AVAIL, reason="OpenMC is not available")
+    def test_single_excel_openmc(self, tmpdir):
+        conf = Configuration(
+            os.path.join(cp, "TestFiles", "output", "config_test.xlsx")
+        )
+        session = MockSession(conf, tmpdir)
+        out = output.OpenMCBenchmarkOutput("32c", "openmc", "ITER_1D", session)
+        out._generate_single_excel_output()
+        out._print_raw()
+
+        assert os.path.exists(
+            os.path.join(
+                session.path_single,
+                "32c",
+                "ITER_1D",
+                "openmc",
+                "Excel",
+                "ITER_1D_32c.xlsx",
+            )
+        )
+        metadata_path = os.path.join(
+            session.path_single, "32c", "ITER_1D", "openmc", "Raw_Data", "metadata.json"
+        )
+        assert os.path.exists(metadata_path)
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        assert metadata["jade_run_version"] == "0.0.1"
+        assert metadata["jade_version"] == __version__
+        assert metadata["code_version"] == "0.14.0"        
 
     def test_iter_cyl(self, tmpdir):
         conf = Configuration(
             os.path.join(cp, "TestFiles", "output", "config_itercyl.xlsx")
         )
         session = MockSession(conf, tmpdir)
-        out = output.BenchmarkOutput("99c", "d1s", "ITER_Cyl_SDDR", session)
+        out = output.MCNPBenchmarkOutput("99c", "d1s", "ITER_Cyl_SDDR", session)
         out.single_postprocess()
-        out = output.BenchmarkOutput("93c", "d1s", "ITER_Cyl_SDDR", session)
+        out = output.MCNPBenchmarkOutput("93c", "d1s", "ITER_Cyl_SDDR", session)
         out.single_postprocess()
         compareBenchmark(session, "99c-93c", "d1s", ["ITER_Cyl_SDDR"], exp=False)
 

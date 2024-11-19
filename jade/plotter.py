@@ -20,13 +20,17 @@
 
 # You should have received a copy of the GNU General Public License
 # along with JADE.  If not, see <http://www.gnu.org/licenses/>.
+from __future__ import annotations
 
 import math
 import os
+from enum import Enum
 
 import matplotlib.pyplot as plt
 
 plt.switch_backend("agg")
+import warnings
+
 import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
@@ -34,7 +38,6 @@ from matplotlib.markers import CARETDOWNBASE, CARETUPBASE
 from matplotlib.patches import Patch, Rectangle
 from matplotlib.ticker import AutoLocator, AutoMinorLocator, LogLocator, MultipleLocator
 from scipy.interpolate import interp1d
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -58,6 +61,18 @@ plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 plt.rc("lines", markersize=12)  # Marker default size
+
+
+class PlotType(Enum):
+    BINNED = "Binned graph"
+    RATIO = "Ratio graph"
+    EXP = "Experimental points"
+    EXP_GROUP = "Experimental points group"
+    CE_EXP_GROUP = "Experimental points group CE"
+    DISCRETE_EXP = "Discrete Experimental points"
+    GROUPED_BARS = "Grouped bars"
+    WAVES = "Waves"
+
 
 # ============================================================================
 #                   Specific data for benchmarks plots
@@ -214,7 +229,7 @@ class Plotter:
             "#dede00",
         ] * 50
 
-    def plot(self, plot_type):
+    def plot(self, plot_type: PlotType | str):
         """
         Function to be called to actually perform the plot
 
@@ -223,7 +238,7 @@ class Plotter:
         plot_type : str
             plot type. The current available ones are ['Binned graph',
             'Ratio graph', 'Experimental points',
-            'Discreet Experimental points', 'Grouped bars', 'Waves'].
+            'Discrete Experimental points', 'Grouped bars', 'Waves'].
 
         Raises
         ------
@@ -236,12 +251,15 @@ class Plotter:
             path to the saved image.
 
         """
+        # force the plot type to be a PlotType
+        if type(plot_type) is str:
+            plot_type = PlotType(plot_type)
         # --- Binned Plot ---
-        if plot_type == "Binned graph":
+        if plot_type == PlotType.BINNED:
             outp = self._binned_plot()
 
         # --- Ratio Plot ---
-        elif plot_type == "Ratio graph":
+        elif plot_type == PlotType.RATIO:
             if self.testname == "ITER_1D":  # Special actions for ITER 1D
                 outp = self._ratio_plot(
                     additional_labels=ADD_LABELS_ITER1D, v_lines=VERT_LINES_ITER1D
@@ -266,14 +284,10 @@ class Plotter:
                 outp = self._ratio_plot()
 
         # --- Experimental Points Plot ---
-        elif plot_type == "Experimental points":
+        elif plot_type == PlotType.EXP:
             outp = self._exp_points_plot(test_name=self.testname)
 
-        # --- Experimental Points Plot ---
-        elif plot_type == "New Experimental points":
-            outp = self._new_exp_points_plot(test_name=self.testname)
-
-        elif plot_type == "Experimental points group":
+        elif plot_type == PlotType.EXP_GROUP:
             if self.testname == "Tiara-BC":  # Special actions for Tiara-BC
                 outp = self._exp_points_group_plot(
                     test_name=self.testname, x_scale="linear"
@@ -281,7 +295,7 @@ class Plotter:
             else:
                 outp = self._exp_points_group_plot(test_name=self.testname)
 
-        elif plot_type == "Experimental points group CE":
+        elif plot_type == PlotType.CE_EXP_GROUP:
             if self.testname == "Tiara-BC":  # Special actions for Tiara-BC
                 outp = self._exp_points_group_plot_CE(
                     test_name=self.testname, x_scale="linear"
@@ -290,11 +304,11 @@ class Plotter:
                 outp = self._exp_points_group_plot_CE(test_name=self.testname)
 
         # --- Experimental Points Plot ---
-        elif plot_type == "Discreet Experimental points":
+        elif plot_type == PlotType.DISCRETE_EXP:
             outp = self._exp_points_discreet_plot()
 
         # --- Grouped bars chart ---
-        elif plot_type == "Grouped bars":
+        elif plot_type == PlotType.GROUPED_BARS:
             if self.testname == "C_Model":
                 log = True
                 xlegend = None
@@ -308,7 +322,7 @@ class Plotter:
             outp = self._grouped_bar(log=log, xlegend=xlegend)
 
         # --- Waves plot ---
-        elif plot_type == "Waves":
+        elif plot_type == PlotType.WAVES:
             outp = self._waves()
 
         # --- Deafault ---
@@ -857,7 +871,6 @@ class Plotter:
             axes = np.array([axes])
 
         for key, val in enumerate(list(self.data.values())):
-
             ref = val[0]
             # Adjounrn ylabel
             ylabel = "C/E"

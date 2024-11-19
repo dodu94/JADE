@@ -32,6 +32,7 @@ from f4enix.input.MCNPinput import D1S_Input
 import pytest
 import json
 from jade.__version__ import __version__
+from jade.__openmc__ import OMC_AVAIL
 from f4enix.input.d1suned import ReactionFile
 
 cp = os.path.dirname(os.path.abspath(__file__))
@@ -89,7 +90,7 @@ class TestTest:
             # "Relative Error cut-off": "F1-0.1",
             "Custom Input": 2,
             "MCNP": True,
-            "OpenMC": True,
+            "OpenMC": OMC_AVAIL,
             "Serpent": True,
         }
         config = pd.Series(config_data)
@@ -162,7 +163,7 @@ class TestSphereTest:
             "Relative Error cut-off": None,
             "Custom Input": 3,
             "MCNP": True,
-            "OpenMC": True,
+            "OpenMC": OMC_AVAIL,
             "Serpent": True,
         }
         config = pd.Series(config_data)
@@ -175,10 +176,11 @@ class TestSphereTest:
             tmpdir, "Sphere", "Sphere_1001_H-1", "mcnp", "metadata.json"
         )
         assert os.path.exists(metadata_file)
-        metadata_file = os.path.join(
-            tmpdir, "Sphere", "Sphere_1001_H-1", "openmc", "metadata.json"
-        )
-        assert os.path.exists(metadata_file)
+        if OMC_AVAIL:
+            metadata_file = os.path.join(
+                tmpdir, "Sphere", "Sphere_1001_H-1", "openmc", "metadata.json"
+            )
+            assert os.path.exists(metadata_file)
 
         with open(metadata_file, "r", encoding="utf-8") as f:
             metadata = json.load(f)
@@ -261,7 +263,7 @@ class TestMultipleTest:
             # "Relative Error cut-off": None,
             "Custom Input": 3,
             "MCNP": True,
-            "OpenMC": True,
+            "OpenMC": OMC_AVAIL,
             "Serpent": True,
         }
         config = pd.Series(config_data)
